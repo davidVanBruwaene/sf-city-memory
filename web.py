@@ -12,6 +12,7 @@ from flask import Flask, jsonify, request, send_from_directory
 HERE = os.path.dirname(os.path.abspath(__file__))
 SOURCE = os.getenv("BLOCK_SOURCE", "mock")  # the one switch: "mock" or "real"
 EXAMPLES = ["Mission St / 24th St", "Chestnut St / Fillmore St", "Guerrero St / 20th St"]
+CHAT_EXAMPLES = ["How's Inner Sunset?", "Mission & 24th parking tomorrow morning?", "Loudest block in SF?"]
 app = Flask(__name__, static_folder=None)
 room, room_lock = {}, threading.Lock()
 ROOM_INDEX = "block-room"
@@ -92,6 +93,19 @@ def api_block():
     return jsonify(b)
 
 
+@app.post("/api/chat")
+def api_chat():
+    history = (request.get_json(silent=True) or {}).get("messages") or []
+    if not history or history[-1].get("role") != "user":
+        return jsonify(error="Ask me about an SF neighborhood or block.", examples=CHAT_EXAMPLES), 400
+    try:
+        import area
+        out = area.chat(history)
+    except Exception:  # never break the page: answer with a friendly line
+        out = {"error": "The AI guide is having trouble answering right now. Please try again in a moment."}
+    return jsonify(out | {"examples": CHAT_EXAMPLES}), 200
+
+
 @app.get("/api/room")
 def api_room():
     with room_lock:
@@ -155,6 +169,11 @@ def home():
 @app.get("/card")
 def phone():
     return send_from_directory(os.path.join(HERE, "web"), "index.html")
+
+
+@app.get("/chat.js")
+def chat_js():
+    return send_from_directory(os.path.join(HERE, "web"), "chat.js")
 
 
 @app.get("/room")
