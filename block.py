@@ -137,7 +137,7 @@ def sweeping_info(b):
     return {**out, **timing} if timing else out
 
 
-def block_facts(street, cross, fast=False):
+def compute_block(street, cross, fast=False):
     must = [name_match("corridor", street)] + ([name_match("limits", cross)] if cross else [])
     hits = es.search(index="sf-street-sweeping", size=1, query={"bool": {"must": must}})["hits"]["hits"]
     if not hits:
@@ -172,4 +172,31 @@ def block_facts(street, cross, fast=False):
     return dict(
         address=f"{street} & {cross}, San Francisco" if cross else f"{street}, San Francisco", lat=lat, lon=lon,
         nickname=nickname,
-        weirdness=weirdness, facts=facts, sweeping=sweeping)
+        weirdness=weirdness, facts=facts, sweeping=sweeping, ai=bool(written))
+
+
+CACHE_INDEX, CACHE_TTL = "block-cache", 24 * 3600
+
+
+def cache_key(street, cross):
+    return f"{street.strip().lower()}|{(cross or '').strip().lower()}"
+
+
+def block_facts(street, cross, fast=False, fresh=False):
+    """Elastic-cached (serverless has no shared memory), a day's TTL. Only Mistral-written results are stored;
+    fast and template results are not. fresh=True recomputes in full and stores."""
+    key = cache_key(street, cross)
+    if not fresh:
+        try:
+            doc = es.get(index=CACHE_INDEX, id=key)["_source"]
+            if time.time() - doc["ts"] < CACHE_TTL:
+                return json.loads(doc["result"])
+        except Exception:
+            pass
+    out = compute_block(street, cross, fast=False if fresh else fast)
+    if not fast and not out.get("error") and out.get("ai"):
+        try:
+            es.index(index=CACHE_INDEX, id=key, document={"ts": time.time(), "result": json.dumps(out)}, refresh=False)
+        except Exception as e:
+            print(f"block-cache write failed: {e}", file=sys.stderr)
+    return out
