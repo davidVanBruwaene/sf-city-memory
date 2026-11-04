@@ -137,12 +137,27 @@ def sweeping_info(b):
     return {**out, **timing} if timing else out
 
 
+def _norm(name):
+    # "05th St" in the data is "5th" to people; compare names without suffix, case or leading zeros.
+    return " ".join(w.lstrip("0") or w for w in name_words(name).split())
+
+
+def best_segment(rows, street, cross):
+    """The text match is loose ("Mission" also matches "Mission Bay Blvd"), so prefer the segment whose corridor is
+    exactly the street and whose limits name the cross street as one end; ties keep Elastic's order."""
+    want_st, want_cr = _norm(street), _norm(cross or "")
+    def rank(r):
+        ends = [_norm(e) for e in re.split(r"\s+-\s+", r.get("limits", ""))]
+        return (_norm(r.get("corridor", "")) != want_st, bool(want_cr) and want_cr not in ends)
+    return sorted(rows, key=rank)[0]
+
+
 def compute_block(street, cross, fast=False):
     must = [name_match("corridor", street)] + ([name_match("limits", cross)] if cross else [])
-    hits = es.search(index="sf-street-sweeping", size=1, query={"bool": {"must": must}})["hits"]["hits"]
+    hits = es.search(index="sf-street-sweeping", size=20, query={"bool": {"must": must}})["hits"]["hits"]
     if not hits:
         return {"error": "not_found"}
-    b = hits[0]["_source"]
+    b = best_segment([h["_source"] for h in hits], street, cross)
     lat, lon = b["location"]["lat"], b["location"]["lon"]
     here = per_dataset(es.search(index=INDEX, size=0, aggs=BY_CATEGORY, query={
         "geo_distance": {"distance": f"{RADIUS_M}m", "location": {"lat": lat, "lon": lon}}}))
