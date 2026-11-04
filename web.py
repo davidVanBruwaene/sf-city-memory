@@ -14,6 +14,7 @@ SOURCE = os.getenv("BLOCK_SOURCE", "mock")  # the one switch: "mock" or "real"
 EXAMPLES = ["Mission St / 24th St", "Chestnut St / Fillmore St", "Guerrero St / 20th St"]
 CHAT_EXAMPLES = ["How's Inner Sunset?", "Mission & 24th parking tomorrow morning?", "Loudest block in SF?"]
 app = Flask(__name__, static_folder=None)
+app.register_blueprint(__import__("parkapi").bp)  # /api/park + /park.js: "Can I park here?"
 room, room_lock = {}, threading.Lock()
 ROOM_INDEX = "block-room"
 _es = None
