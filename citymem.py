@@ -84,9 +84,17 @@ def visible_to(user):
     }}
 
 
+PLACE_WORDS = ("coffee", "cafe", "café", "espresso", "roaster", "place", "spot", "work from", "wifi", "wi-fi", "laptop")
+
+
 def retrieve(user, query, size=8):
-    lexical = {"bool": {"must": {"multi_match": {"query": query, "fields": ["title^2", "body"]}}, "filter": visible_to(user)}}
-    semantic = {"bool": {"must": {"semantic": {"field": "body_semantic", "query": query}}, "filter": visible_to(user)}}
+    visible = visible_to(user)
+    # The ~900 bulk-loaded DataSF coffee shops would crowd events out of the top results, so they only count when
+    # the question is about a place or coffee.
+    if not any(w in query.lower() for w in PLACE_WORDS):
+        visible["bool"]["must_not"].append({"term": {"owner": "datasf"}})
+    lexical = {"bool": {"must": {"multi_match": {"query": query, "fields": ["title^2", "body"]}}, "filter": visible}}
+    semantic = {"bool": {"must": {"semantic": {"field": "body_semantic", "query": query}}, "filter": visible}}
     try:
         r = es.search(index=INDEX, size=size, source_excludes=["body_semantic"], retriever={"rrf": {"retrievers": [
             {"standard": {"query": lexical}}, {"standard": {"query": semantic}}]}})
