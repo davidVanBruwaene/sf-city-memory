@@ -22,9 +22,9 @@ def explain():
     ep = citymem.es.inference.get(inference_id=citymem.EMBED_ID)["endpoints"][0]
     print(f"\nInference endpoint {ep['inference_id']}: service={ep['service']}, model={ep['service_settings'].get('model')}")
     print("\nRetrieval: RRF hybrid of BM25 (title, body) + semantic (body_semantic), filtered by visibility:")
-    print(json.dumps(citymem.visible_to("david"), indent=1))
-    print(f"\nMistral: {citymem.MODEL} extracts question + facts (structured output) and writes the cited answer;"
-          f" {citymem.FAST} decides whether a new report replaces an old one; mistral-embed embeds every entry.")
+    print(json.dumps(citymem.visible_to("david")))
+    print(f"\nMistral: {citymem.MODEL} extracts question + facts (structured output), judges whether a new report "
+          "updates an old one and merges them, and writes the cited answer; mistral-embed embeds every entry.")
 
 
 def main():

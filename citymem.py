@@ -12,7 +12,6 @@ from sfhack import MISTRAL_API_KEY, es, mistral
 INDEX = "city-memory"
 EMBED_ID = "mistral-embeddings"
 MODEL = "mistral-large-4"
-FAST = "ministral-8b-latest"
 USAGE = "usage: python citymem.py setup | chat <user> | say <user> <text|@file> [--yes] | show | stats | reset"
 
 EXTRACT = (
