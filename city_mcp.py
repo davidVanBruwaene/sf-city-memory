@@ -5,6 +5,7 @@ import sys
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+import requests
 from mcp.server.mcpserver import MCPServer
 
 import citymem
@@ -60,6 +61,49 @@ def street_cleaning(street: str, cross_street: str | None = None) -> str:
                      f"{s['fromhour']}:00-{s['tohour']}:00. Next: {when}")
     near = f" near {cross_street}" if cross_street else ""
     return "\n".join(lines) if len(lines) > 1 else f"No street-cleaning schedule found for {street}{near}."
+
+
+def soql(dataset, params):
+    r = requests.get(f"https://data.sf.gov/resource/{dataset}.json", params=params, timeout=20)
+    r.raise_for_status()
+    return r.json()
+
+
+def counted(rows, key):
+    total = sum(int(x["n"]) for x in rows)
+    top = ", ".join(f"{(x.get(key) or 'unspecified').split('::')[-1].strip()} {x['n']}" for x in rows[:5])
+    return total, top
+
+
+@server.tool()
+def about_block(street: str, cross_street: str) -> str:
+    """Tell the user about a San Francisco block they live or are staying on: its street trees, what people reported
+    to 311 nearby in the last 30 days (both live from DataSF) and its street-cleaning schedule. Give the street and a
+    cross street at one end of the block."""
+    r = es.search(index="sf-street-sweeping", size=1, query={"bool": {"must": [
+        name_match("corridor", street), name_match("limits", cross_street)]}})
+    if not r["hits"]["hits"]:
+        return f"No block found for {street} near {cross_street}."
+    b = r["hits"]["hits"][0]["_source"]
+    lat, lon = b["location"]["lat"], b["location"]["lon"]
+    out = [f"Block: {b['corridor']} between {b['limits']} (around {lat:.5f}, {lon:.5f})"]
+    try:
+        # Trees carry the same centerline id (cnn) as the street-cleaning block, so this is the exact block.
+        total, top = counted(soql("tkzw-k3nq", {"$select": "species, count(*) AS n", "$where": f"cnn='{b['cnn']}'",
+                                                "$group": "species", "$order": "n DESC"}), "species")
+        out.append(f"Street trees on this block: {total}" + (f" ({top})" if total else ""))
+    except Exception as e:
+        out.append(f"Street trees: unavailable ({type(e).__name__})")
+    try:
+        since = (datetime.now(SF) - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%S")
+        total, top = counted(soql("vw6y-z8j6", {
+            "$select": "service_name, count(*) AS n", "$group": "service_name", "$order": "n DESC",
+            "$where": f"within_circle(point, {lat}, {lon}, 120) AND requested_datetime > '{since}'"}), "service_name")
+        out.append(f"311 reports within 120 m in the last 30 days: {total}" + (f" ({top})" if total else ""))
+    except Exception as e:
+        out.append(f"311 reports: unavailable ({type(e).__name__})")
+    out.append("Street cleaning:\n" + street_cleaning(street, cross_street))
+    return "\n".join(out)
 
 
 @server.tool()
