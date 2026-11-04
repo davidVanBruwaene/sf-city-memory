@@ -148,6 +148,11 @@ def memory_layer_js():
 
 
 @app.get("/")
+def home():
+    return send_from_directory(os.path.join(HERE, "web"), "memory-map.html")
+
+
+@app.get("/card")
 def phone():
     return send_from_directory(os.path.join(HERE, "web"), "index.html")
 
