@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Your Block, Unfiltered</title>
+<style>
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:#0d0d14;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif;overscroll-behavior:none}
+#form{height:100%;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:28px}
+h1{font-size:34px;line-height:1.05;letter-spacing:-1px}h1 b{color:#ff5c8a}
+p.sub{color:#9a9ab0;font-size:15px}
+input{font-size:17px;padding:15px;border-radius:14px;border:1px solid #33334a;background:#181826;color:#fff;width:100%}
+button{font:600 17px inherit;font-family:inherit;padding:15px;border-radius:14px;border:0;background:#ff5c8a;color:#fff}
+button.ghost{background:#181826;border:1px solid #33334a;color:#cfcfe6;font-weight:500;font-size:15px}
+#err{color:#ffb454;font-size:14px;min-height:18px}
+#deck{display:none;height:100%;position:relative}
+#cards{display:flex;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#cards::-webkit-scrollbar{display:none}
+.card{flex:0 0 100%;scroll-snap-align:center;display:flex;flex-direction:column;justify-content:center;padding:36px 28px 70px;gap:14px}
+.k{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#ff5c8a;font-weight:700}
+.nick{font-size:44px;line-height:1.02;font-weight:800;letter-spacing:-1.5px}
+.big{font-size:104px;line-height:.95;font-weight:900;letter-spacing:-4px;background:linear-gradient(135deg,#ff5c8a,#ffb454);-webkit-background-clip:text;color:transparent}
+.sent{font-size:21px;line-height:1.3}.cnt{font-size:16px;color:#cfcfe6}.src{font-size:12px;color:#7a7a92}
+.time{font-size:72px;font-weight:900;letter-spacing:-2px;color:#7ee0a8}
+.c1{background:linear-gradient(160deg,#2a1240,#0d0d14)}.c2{background:linear-gradient(160deg,#10223f,#0d0d14)}
+.c3{background:linear-gradient(160deg,#3a1226,#0d0d14)}.c4{background:linear-gradient(160deg,#3a2a10,#0d0d14)}
+.c5{background:linear-gradient(160deg,#0f3326,#0d0d14)}
+#dots{position:absolute;bottom:26px;left:0;right:0;display:flex;justify-content:center;gap:8px}
+#dots i{width:8px;height:8px;border-radius:4px;background:#ffffff40;transition:.2s}#dots i.on{background:#fff;width:22px}
+#back{position:absolute;top:14px;right:16px;z-index:2;background:#ffffff18;font-size:13px;padding:8px 12px;border-radius:12px}
+.hint{color:#ffffff80;font-size:13px}
+</style></head><body>
+<form id="form">
+  <h1>Your Block,<br><b>Unfiltered.</b></h1>
+  <p class="sub">What's weird about your corner of San Francisco? Real city data, no filter.</p>
+  <input id="street" placeholder="Street (e.g. Mission St)" autocapitalize="words" autocomplete="off">
+  <input id="cross" placeholder="Cross street (e.g. 24th St)" autocapitalize="words" autocomplete="off">
+  <button type="submit">Show my block</button>
+  <button type="button" class="ghost" id="ex">Mission St / 24th St</button>
+  <div id="err"></div>
+</form>
+<div id="deck"><button id="back">New block</button><div id="cards"></div><div id="dots"></div></div>
+<script>
+const $=s=>document.querySelector(s), esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+let current=null;
+async function go(street,cross){
+  $('#err').textContent='Looking up your block…';
+  try{
+    const r=await fetch('/api/block?street='+encodeURIComponent(street)+'&cross='+encodeURIComponent(cross));
+    const b=await r.json();
+    if(!r.ok||b.error){$('#err').textContent="Couldn't find that block. Try: "+(b.examples||[]).join(' · ');return}
+    current=b;render(b);$('#err').textContent='';
+  }catch(e){$('#err').textContent='Network trouble — try again.'}
+}
+function render(b){
+  const cards=[`<div class="card c1"><div class="k">Your block is</div><div class="nick">${esc(b.nickname)}</div><div class="src">${esc(b.address)}</div><div class="hint">swipe →</div></div>`];
+  b.facts.forEach((f,i)=>cards.push(`<div class="card c${2+i%3}"><div class="k">Fact ${i+1} of ${b.facts.length}</div><div class="big">${esc(f.ratio)}×</div><div class="sent">${esc(f.sentence)}</div><div class="cnt">${esc(f.count)} cases · ${esc(f.period)}</div><div class="src">Source: ${esc(f.dataset)}</div></div>`));
+  const s=b.sweeping;
+  cards.push(`<div class="card c5"><div class="k">Move your car</div>`+(s?`<div class="sent">Street cleaning: ${esc(s.schedule)}</div><div class="cnt">officer usually by</div><div class="time">${esc(s.officer_usually_by)}</div><div class="src">±${esc(s.spread_min)} min · seen ${esc(s.weeks_seen)} of ${esc(s.weeks_total)} weeks (parking-citation data)</div>`:`<div class="sent">No reliable pattern for this block — enforcement times vary too much.</div>`)+`</div>`);
+  cards.push(`<div class="card c1"><div class="k">Share it</div><canvas id="cv" width="1080" height="1350" style="width:100%;max-height:52vh;object-fit:contain;border-radius:16px"></canvas><button id="share">Share / save image</button></div>`);
+  $('#cards').innerHTML=cards.join('');$('#dots').innerHTML=cards.map((_,i)=>`<i class="${i?'':'on'}"></i>`).join('');
+  $('#form').style.display='none';$('#deck').style.display='block';$('#cards').scrollLeft=0;
+  drawShare(b);$('#share').onclick=share;
+}
+$('#cards').addEventListener('scroll',e=>{const i=Math.round(e.target.scrollLeft/e.target.clientWidth);document.querySelectorAll('#dots i').forEach((d,j)=>d.classList.toggle('on',i==j))});
+function wrap(c,t,x,y,w,lh){const ws=t.split(' ');let l='';for(const w1 of ws){const n=l?l+' '+w1:w1;if(c.measureText(n).width>w&&l){c.fillText(l,x,y);y+=lh;l=w1}else l=n}c.fillText(l,x,y);return y+lh}
+function drawShare(b){
+  const cv=$('#cv'),c=cv.getContext('2d'),g=c.createLinearGradient(0,0,1080,1350);g.addColorStop(0,'#2a1240');g.addColorStop(1,'#0d0d14');
+  c.fillStyle=g;c.fillRect(0,0,1080,1350);c.textBaseline='alphabetic';
+  c.fillStyle='#ff5c8a';c.font='700 34px -apple-system,sans-serif';c.fillText('YOUR BLOCK, UNFILTERED',70,110);
+  c.fillStyle='#fff';c.font='800 92px -apple-system,sans-serif';let y=wrap(c,b.nickname,70,250,940,100);
+  const f=b.facts[0];if(f){const g2=c.createLinearGradient(0,0,600,0);g2.addColorStop(0,'#ff5c8a');g2.addColorStop(1,'#ffb454');
+    c.fillStyle=g2;c.font='900 280px -apple-system,sans-serif';c.fillText(f.ratio+'×',70,y+280);
+    c.fillStyle='#fff';c.font='500 46px -apple-system,sans-serif';y=wrap(c,f.sentence,70,y+370,940,60);}
+  c.fillStyle='#7a7a92';c.font='400 32px -apple-system,sans-serif';c.fillText(b.address,70,1240);
+  c.fillText('Real SF open data · '+(f?f.dataset:''),70,1290);
+}
+async function share(){
+  const blob=await new Promise(r=>$('#cv').toBlob(r,'image/png')),file=new File([blob],'my-block.png',{type:'image/png'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:current.nickname,text:current.facts[0].sentence});return}catch(e){if(e.name==='AbortError')return}}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='my-block.png';a.click();
+}
+$('#form').onsubmit=e=>{e.preventDefault();go($('#street').value.trim(),$('#cross').value.trim())};
+$('#ex').onclick=()=>{$('#street').value='Mission St';$('#cross').value='24th St';go('Mission St','24th St')};
+$('#back').onclick=()=>{$('#deck').style.display='none';$('#form').style.display='flex'};
+</script></body></html>

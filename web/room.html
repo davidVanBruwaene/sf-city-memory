@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Weirdest blocks in the room</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:#07070d;color:#fff;font-family:-apple-system,BlinkMacSystemFont,sans-serif;overflow:hidden}
+#wrap{display:grid;grid-template-columns:1fr 38%;height:100%}
+#map{height:100%;background:#0b0b14}
+.leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.75) contrast(.9) saturate(.5)}
+.leaflet-container{background:#0b0b14}
+#side{padding:36px;display:flex;flex-direction:column;gap:20px;position:relative}
+h1{font-size:44px;line-height:1.05;letter-spacing:-1.5px}h1 b{color:#ff5c8a}
+.n{color:#9a9ab0;font-size:22px}
+.row{display:flex;gap:18px;align-items:center;padding:14px 18px;border-radius:18px;background:#14141f}
+.row:first-of-type{background:linear-gradient(90deg,#3a1226,#14141f)}
+.rk{font-size:46px;font-weight:900;color:#ff5c8a;width:44px}
+.nick{font-size:27px;font-weight:700;line-height:1.1}.tf{font-size:19px;color:#ffb454;margin-top:4px}
+.sc{margin-left:auto;font-size:34px;font-weight:800;color:#7ee0a8}
+#qr{position:fixed;left:24px;bottom:24px;z-index:1000;background:#fff;padding:10px;border-radius:14px;text-align:center;color:#000;font-size:15px;font-weight:600}
+#qr canvas,#qr img{display:block;margin:0 auto 4px}
+.dot{width:20px;height:20px;border-radius:50%;background:#ff5c8a;box-shadow:0 0 22px 8px #ff5c8a88}
+.dot.t{background:#ffb454;box-shadow:0 0 30px 12px #ffb454aa}
+</style></head><body>
+<div id="wrap"><div id="map"></div>
+<div id="side"><h1>Weirdest blocks<br><b>in the room</b></h1><div class="n" id="n">Scan to see yours →</div><div id="top"></div>
+<div id="qr"><div id="qrbox"></div><div id="url"></div></div></div></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+const esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const map=L.map('map',{zoomControl:false,attributionControl:false}).setView([37.76,-122.435],12);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(map);
+const u=location.origin+'/';document.getElementById('url').textContent=u.replace(/^https?:\/\//,'');
+try{new QRCode(document.getElementById('qrbox'),{text:u,width:150,height:150})}catch(e){}
+let layer=L.layerGroup().addTo(map),fitted=0;
+async function tick(){
+  try{
+    const d=await (await fetch('/api/room')).json(),topKeys=new Set(d.top5.map(b=>b.lat+','+b.lon));
+    layer.clearLayers();
+    d.blocks.forEach(b=>L.marker([b.lat,b.lon],{icon:L.divIcon({className:'',html:`<div class="dot ${topKeys.has(b.lat+','+b.lon)?'t':''}"></div>`,iconSize:[20,20]})}).addTo(layer));
+    if(d.blocks.length&&d.blocks.length!==fitted){fitted=d.blocks.length;map.fitBounds(L.latLngBounds(d.blocks.map(b=>[b.lat,b.lon])).pad(.4),{maxZoom:15})}
+    document.getElementById('n').textContent=d.blocks.length?d.blocks.length+' blocks submitted · scan to add yours →':'Scan to see yours →';
+    document.getElementById('top').innerHTML=d.top5.map((b,i)=>`<div class="row"><div class="rk">${i+1}</div><div><div class="nick">${esc(b.nickname)}</div><div class="tf">${esc(b.top_fact)}</div></div><div class="sc">${b.weirdness}</div></div>`).join('');
+  }catch(e){}
+}
+tick();setInterval(tick,3000);
+</script></body></html>
