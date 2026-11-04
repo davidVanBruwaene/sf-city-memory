@@ -11,6 +11,7 @@ SF City Memory is an MCP server that makes a chatbot know San Francisco. It tell
 
 | user says | what happens |
 |---|---|
+| "I'm staying on Sutter St near Gough. Tell me about my block." | Street trees on the block, recent 311 reports nearby and the street-cleaning schedule |
 | "I'm parked on Sutter St near Gough. Do I need to move my car this week?" | The next street cleaning for each side of that block |
 | "I'm in SF until Friday for AI and startup stuff. What's worth going to this week?" | A short brief from the city memory, citing its entries |
 | "Add this to the city memory: ..." | Stored for everyone. A report about something already known updates that entry instead of duplicating it |
@@ -25,6 +26,7 @@ Chat client (Claude Desktop, Claude Code, Mistral Vibe, or any MCP client)
             sf-street-sweeping: 37,878 block sides from DataSF
             city-memory: shared knowledge, embedded by mistral-embed
        -> Mistral API: mistral-large-4 extracts, matches, merges and writes briefs
+       -> DataSF API, live: street trees and 311 reports for about_block
 ```
 
 - **The chat client** holds the conversation.
@@ -38,6 +40,7 @@ Elastic calls `mistral-embed` itself through an inference endpoint, so the serve
 | tool | input | returns |
 |---|---|---|
 | `street_cleaning` | `street`, optional `cross_street` | Up to 12 matching block sides, each with its schedule and the next two cleanings from now (Pacific time) |
+| `about_block` | `street`, `cross_street` | The block's street trees and the 311 reports within 120 m in the last 30 days (both live from DataSF), plus its street cleaning |
 | `ask_city` | `question` | A brief written by `mistral-large-4` that cites entries as [n], followed by the entries with who reported each one and when |
 | `remember` | `note`, `share` (default true) | What was stored, and which earlier report it replaced, if any. `share=false` keeps the note private |
 
@@ -48,11 +51,18 @@ The server acts as one user, set by the `CITY_USER` environment variable (defaul
 - **Source.** DataSF dataset `yhqp-riqs` (Street Sweeping Schedule), https://data.sf.gov/resource/yhqp-riqs.json. `ingest_sweeping.py` loads it into the `sf-street-sweeping` index.
 - **Documents.** Each document is one side of one block: the street (`corridor`), the cross streets it runs between (`limits`), the block side, weekday, start and end hour, weeks of the month (1-5), a holidays flag, and a `geo_point` at the block's midpoint.
 - **Week rule.** Week N means the Nth such weekday of the month, as on SF street signs ("Tue 1st & 3rd"). The tool computes the next two dates from that rule, looking up to 10 weeks ahead.
-- **Matching.** Every word of the street must match `corridor`. A cross street narrows the result through `limits`.
+- **Matching.** Suffix words (St, Street, Ave, Blvd and so on) are dropped first, because the data writes "St" where people write "Street". Every remaining word of the street must match `corridor`, and every remaining word of the cross street must match `limits`, so a cross street filters to the blocks that touch it.
 - **Not handled yet.**
   - Holiday exceptions: the flag is stored but not applied.
-  - Lookup by location: the `geo_point` is stored but no tool uses it.
+  - Lookup by location: no tool finds a block from coordinates or an address. `about_block` uses the stored point only to centre its 311 search on a block found by name.
 - **Garbage pickup.** DataSF has no garbage-collection dataset, so garbage days go in as private notes.
+
+## About a block
+
+`about_block` finds the block in `sf-street-sweeping` from the street and cross street, then queries DataSF live:
+
+- **Street trees** (`tkzw-k3nq`), counted by species. They are matched on the block's centerline id (`cnn`), which the tree inventory shares with the street-cleaning data. A count of 0 can also mean the inventory files that block's trees under another segment.
+- **311 reports** (`vw6y-z8j6`) within 120 m of the block's midpoint in the last 30 days, counted by service.
 
 ## City memory
 
@@ -87,6 +97,7 @@ The server acts as one user, set by the `CITY_USER` environment variable (defaul
 - Hybrid retrieval with the RRF retriever
 - Permission filtering in the query: visibility, owner, superseded
 - 37,878 street-cleaning documents, each with a location
+- Block lookup for `about_block`, whose stored location centres the 311 search
 - Terms aggregations for memory stats (`python citymem.py stats`)
 
 **Mistral**
@@ -122,10 +133,10 @@ The organisers reported the first two entries and David the other four. Access i
 6. Connect a client. `<repo>` is the path to the clone.
    - **Claude Desktop.** Add this under `mcpServers` in `~/Library/Application Support/Claude/claude_desktop_config.json`:
      `"sf-city": {"command": "<repo>/.venv/bin/python", "args": ["<repo>/city_mcp.py"], "env": {"CITY_USER": "<name>"}}`
-     - Claude Desktop rewrites that file from memory while it runs, so add the entry with the app closed.
+     - Claude Desktop rewrites that file from memory while it runs, so add the entry with the app closed. This route has not yet been seen working.
      - `connect_claude.py` does this for you: it quits Claude, adds the entry and reopens Claude. Double-clicking `Connect sf-city to Claude.command` runs it.
      - It sets `CITY_USER` to `david`; edit `ENTRY` in that script for another user.
-   - **Claude Code:** `claude mcp add --transport stdio sf-city --env CITY_USER=<name> -- <repo>/.venv/bin/python <repo>/city_mcp.py`
+   - **Claude Code** (the route seen working): `claude mcp add --transport stdio --scope local sf-city --env CITY_USER=<name> -- <repo>/.venv/bin/python <repo>/city_mcp.py`, run from the repo folder. Start a new session afterwards; a running session keeps the server code it started with.
    - **Mistral Vibe:** `vibe mcp add sf-city --transport stdio --command <repo>/.venv/bin/python --arg <repo>/city_mcp.py --env CITY_USER=<name>`
      - Registering works. A full Vibe chat through the server has not been verified.
 
@@ -153,7 +164,7 @@ The organisers reported the first two entries and David the other four. Access i
 
 | file | what it is |
 |---|---|
-| `city_mcp.py` | The MCP server, with 3 tools |
+| `city_mcp.py` | The MCP server, with 4 tools |
 | `citymem.py` | The city memory (mappings, retrieval, extraction, matching, merging, answering) and a CLI: `setup`, `chat`, `say`, `show`, `stats`, `reset` |
 | `ingest_sweeping.py` | Loads DataSF street cleaning into Elastic |
 | `seed_week.py`, `seed/tonight.md` | Seed entries |
