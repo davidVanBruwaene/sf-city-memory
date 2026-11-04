@@ -16,6 +16,9 @@
 .pk-card{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:1200;width:min(440px,calc(100% - 24px));background:#0a0f1ef2;color:#fff;border-radius:20px;padding:20px 22px 18px;font:14px/1.45 -apple-system,sans-serif;box-shadow:0 10px 40px #000a;border-top:6px solid var(--c)}
 .pk-card .h{font-size:28px;line-height:1.1;font-weight:800;color:var(--c);letter-spacing:-.5px}.pk-card .w{color:#c8cde0;margin-top:6px}
 .pk-card .s{margin-top:10px;color:#e6e9f5}.pk-card .s div{margin-top:3px}.pk-card .x{position:absolute;top:10px;right:14px;background:none;border:0;color:#fff8;font-size:20px;cursor:pointer}
+.pk-toast{position:fixed;top:68px;left:50%;transform:translateX(-50%);z-index:1300;display:none;background:#0a0f1ef2;color:#fff;font:600 13px -apple-system,sans-serif;padding:9px 16px;border-radius:99px;box-shadow:0 4px 20px #0006}
+.pk-me-dot i{display:block;width:18px;height:18px;border-radius:50%;background:#4a9dff;border:3px solid #fff;box-sizing:border-box;box-shadow:0 0 0 0 #4a9dffaa;animation:pkpulse 1.8s infinite}
+@keyframes pkpulse{70%{box-shadow:0 0 0 16px #4a9dff00}100%{box-shadow:0 0 0 0 #4a9dff00}}
 .pk-pin{font-size:30px;line-height:30px;text-align:center}`;
   document.head.appendChild(css);
 
@@ -37,8 +40,42 @@
   }
   go.onclick = () => setPicking(!picking);
   const me = bar.querySelector('#pk-me');
-  if (me) me.onclick = () => navigator.geolocation.getCurrentPosition(p => check(p.coords.latitude, p.coords.longitude),
-    () => show({status: 'none', headline: "Couldn't get your location", detail: 'Tap the map instead.'}), {enableHighAccuracy: true, timeout: 8000});
+  const meLayer = L.layerGroup().addTo(map);
+  const VENUE = {lat: 37.7873, lon: -122.4002};
+  const inSF = (la, lo) => la > 37.70 && la < 37.835 && lo > -122.53 && lo < -122.34;
+  let toastEl, toastTimer;
+  function toast(msg) {
+    if (!toastEl) { toastEl = document.createElement('div'); toastEl.className = 'pk-toast'; document.body.appendChild(toastEl); }
+    toastEl.textContent = msg; toastEl.style.display = 'block';
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { toastEl.style.display = 'none'; }, 5000);
+  }
+  function showMe(lat, lon, acc) {
+    meLayer.clearLayers();
+    if (acc) L.circle([lat, lon], {radius: acc, color: '#4a9dff', weight: 1, fillColor: '#4a9dff', fillOpacity: .15, interactive: false}).addTo(meLayer);
+    L.marker([lat, lon], {interactive: false, keyboard: false, icon: L.divIcon({className: 'pk-me-dot', html: '<i></i>', iconSize: [18, 18], iconAnchor: [9, 9]})}).addTo(meLayer);
+  }
+  function useLocation(lat, lon, acc, demo) {
+    showMe(lat, lon, acc);
+    map.flyTo([lat, lon], 17);
+    if (demo) toast('Demo location: 33 New Montgomery');
+    check(lat, lon);
+  }
+  if (me) me.onclick = () => {
+    const label = me.textContent;
+    me.disabled = true; me.textContent = '⏳ Locating…';
+    const done = () => { me.disabled = false; me.textContent = label; };
+    navigator.geolocation.getCurrentPosition(p => {
+      done();
+      const {latitude: la, longitude: lo, accuracy} = p.coords;
+      if (inSF(la, lo)) useLocation(la, lo, accuracy, false);
+      else useLocation(VENUE.lat, VENUE.lon, 0, true);
+    }, err => {
+      done();
+      toast(err && err.code === 1 ? 'Location permission denied' : 'Location timed out');
+      useLocation(VENUE.lat, VENUE.lon, 0, true);
+      setTimeout(() => toast('Demo location: 33 New Montgomery'), 0);
+    }, {enableHighAccuracy: true, timeout: 8000, maximumAge: 30000});
+  };
 
   // Capture the tap before the map's own click handler (which opens the block panel) sees it.
   map.getContainer().addEventListener('click', e => {
