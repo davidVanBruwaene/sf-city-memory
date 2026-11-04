@@ -22,6 +22,10 @@ h2.pending{background:linear-gradient(90deg,#fff3,#fff8,#fff3);background-size:2
 .nav button{background:#1c2140;border:0;color:#fff;width:40px;height:40px;border-radius:50%;font-size:18px;cursor:pointer}
 .nav .dot{width:8px;height:8px;border-radius:50%;background:#556;cursor:pointer}.nav .dot.on{background:#ff4d6d}
 #share{width:100%;background:#ff4d6d;color:#fff;border:0;border-radius:10px;padding:12px;font:700 15px -apple-system,sans-serif;cursor:pointer}
+#presets{position:fixed;z-index:1000;bottom:18px;left:64px;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 440px)}
+#presets button{font:600 13px -apple-system,sans-serif;padding:7px 12px;border-radius:99px;background:#12162add;color:#dfe6ff;border:1px solid #ffffff33;cursor:pointer}
+#presets button:hover{background:#2a3470}
+@media(max-width:700px){#presets{max-width:calc(100% - 24px);bottom:auto;top:108px;left:12px}}
 #x{position:absolute;top:70px;right:14px;background:none;border:0;color:#fff;font-size:24px;cursor:pointer;padding:8px}
 #grab{display:none}
 #hint{position:fixed;z-index:1002;left:50%;bottom:28px;transform:translateX(-50%);background:#ff4d6d;color:#fff;font:700 15px -apple-system,sans-serif;padding:10px 18px;border-radius:24px;box-shadow:0 4px 20px #000a;transition:opacity .4s;pointer-events:none;white-space:nowrap}
@@ -32,6 +36,7 @@ h2.pending{background:linear-gradient(90deg,#fff3,#fff8,#fff3);background-size:2
 </style></head><body>
 <div id="title">Your Block, Unfiltered<small>Tap a glowing pin (or any corner) — see what makes it weird</small></div>
 <div id="map"></div>
+<div id="presets"></div>
 <div id="panel"><div id="grab"></div><button id="x" aria-label="close">✕</button><div id="out"></div></div>
 <canvas id="blob" width="360" height="360"></canvas><div id="prog"></div><div id="hint">👆 Tap a glowing block</div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -109,6 +114,10 @@ map.on('click',e=>show(null,null,e.latlng.lat,e.latlng.lng));
 for(const [st,cr,lat,lon] of WOW)
   L.marker([lat,lon],{icon:L.divIcon({className:'',iconSize:[26,26],html:'<div class="wow"><i></i><i></i><b></b></div>'}),title:st+' & '+cr})
    .on('click',()=>{map.panTo([lat,lon]);show(st,cr,lat,lon)}).addTo(map);
+for(const [st,cr,lat,lon] of [WOW[0],WOW[1],['Guerrero St','19th St',37.7596,-122.4241]]){
+  const b=document.createElement('button');b.textContent=st+' / '+cr;
+  b.onclick=()=>{map.flyTo([lat,lon],16,{duration:1});show(st,cr,lat,lon)};
+  document.getElementById('presets').appendChild(b)}
 document.getElementById('x').onclick=closePanel;
 map.on('click',()=>hint.style.opacity=0);
 setTimeout(()=>{hint.style.opacity=0},9000);
