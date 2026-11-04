@@ -49,7 +49,7 @@
     {t: '🅿️ Can I park here tonight?', ok: () => has('show'), run: async () => {
       clean(); fly(37.7587, -122.4240, 16);
       const sw = $('sw-tom'); sw && sw.click();
-      const p = fetch('/api/park?lat=37.7587&lon=-122.4237&t=' + encodeURIComponent('Wed 07:00')).then(r => r.ok ? r.json() : null).catch(() => null);
+      const p = fetch('/api/park?lat=37.7587&lon=-122.4233&t=' + encodeURIComponent('Wed 07:00')).then(r => r.ok ? r.json() : null).catch(() => null);
       show('Guerrero St', '20th St', 37.7587, -122.4240);
       const [b, park] = await Promise.all([api('Guerrero St', '20th St').catch(() => null), p]);
       const v = park && (park.headline);
