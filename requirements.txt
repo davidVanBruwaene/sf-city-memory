@@ -1,0 +1,8 @@
+elasticsearch
+requests
+gtfs-realtime-bindings
+protobuf
+mistralai
+python-dotenv
+jupyterlab
+ipykernel
