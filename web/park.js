@@ -71,9 +71,8 @@
       else useLocation(VENUE.lat, VENUE.lon, 0, true);
     }, err => {
       done();
-      toast(err && err.code === 1 ? 'Location permission denied' : 'Location timed out');
       useLocation(VENUE.lat, VENUE.lon, 0, true);
-      setTimeout(() => toast('Demo location: 33 New Montgomery'), 0);
+      toast((err && err.code === 1 ? 'Location permission denied' : 'Location timed out') + ' · Demo location: 33 New Montgomery');
     }, {enableHighAccuracy: true, timeout: 8000, maximumAge: 30000});
   };
 
