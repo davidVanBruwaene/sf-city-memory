@@ -112,7 +112,50 @@ def _room_json(blocks):
     return jsonify(blocks=blocks, top5=sorted(blocks, key=lambda x: -x["weirdness"])[:5])
 
 
+MEMORY_FIELDS = ["kind", "title", "body", "owner", "observed_at", "source_quote", "url", "neighborhood", "when", "access", "location"]
+
+
+@app.get("/api/memory")
+def api_memory():
+    """City-memory items with a location inside bbox=west,south,east,north (public/community only, plus ?user='s own)."""
+    global _es
+    try:
+        w, s, e, n = (float(x) for x in request.args.get("bbox", "").split(","))
+    except ValueError:
+        return jsonify(error="bad_bbox", items=[]), 400
+    if _es is None:
+        if not (os.getenv("ELASTIC_ENDPOINT") and os.getenv("ELASTIC_API_KEY")):
+            return jsonify(items=[], note="no elastic configured")
+        from elasticsearch import Elasticsearch
+        _es = Elasticsearch(os.environ["ELASTIC_ENDPOINT"], api_key=os.environ["ELASTIC_API_KEY"])
+    user = request.args.get("user", "")
+    vis = [{"terms": {"visibility": ["public", "community"]}}] + ([{"term": {"owner": user}}] if user else [])
+    q = {"bool": {"filter": [{"geo_bounding_box": {"location": {"top_left": {"lat": n, "lon": w}, "bottom_right": {"lat": s, "lon": e}}}},
+                             {"bool": {"should": vis, "minimum_should_match": 1}}],
+                  "must_not": [{"term": {"status": "superseded"}}]}}
+    try:
+        r = _es.search(index="city-memory", query=q, size=min(int(request.args.get("limit", 600)), 1000), source_includes=MEMORY_FIELDS)
+    except Exception as ex:
+        return jsonify(error="search_failed", detail=str(ex), items=[]), 502
+    return jsonify(items=[h["_source"] | {"id": h["_id"]} for h in r["hits"]["hits"]])
+
+
+@app.get("/memory-map")
+def memory_map_page():
+    return send_from_directory(os.path.join(HERE, "web"), "memory-map.html")
+
+
+@app.get("/memory-layer.js")
+def memory_layer_js():
+    return send_from_directory(os.path.join(HERE, "web"), "memory-layer.js")
+
+
 @app.get("/")
+def home():
+    return send_from_directory(os.path.join(HERE, "web"), "memory-map.html")
+
+
+@app.get("/card")
 def phone():
     return send_from_directory(os.path.join(HERE, "web"), "index.html")
 

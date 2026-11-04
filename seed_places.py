@@ -1,4 +1,6 @@
 """Seed the shared city memory with open SF coffee shops from DataSF Registered Business Locations (g8m3-pdis)."""
+import hashlib
+
 import requests
 from elasticsearch import helpers
 
@@ -40,7 +42,8 @@ def docs(rows):
         doc = fact.model_dump() | {"body_semantic": body, "owner": "datasf", "visibility": "public",
                                    "source_quote": f"DataSF g8m3-pdis {r['uniqueid']}", "status": "reported",
                                    "observed_at": now, "location": {"lat": lat, "lon": lon}}
-        yield {"_index": INDEX, "_source": doc}
+        # Id from name + address so re-running the seed overwrites instead of duplicating.
+        yield {"_index": INDEX, "_id": "place-" + hashlib.sha1("|".join(key).encode()).hexdigest()[:20], "_source": doc}
 
 
 if __name__ == "__main__":

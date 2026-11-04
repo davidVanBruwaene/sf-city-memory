@@ -1,0 +1,54 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your Block, Unfiltered</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+html,body,#map{height:100%;margin:0;background:#0b0b14;font-family:-apple-system,sans-serif}
+.leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.75) contrast(.9) saturate(.5)}
+#title{position:fixed;top:0;left:0;right:0;z-index:1000;padding:12px 16px;color:#fff;font:800 20px -apple-system,sans-serif;background:linear-gradient(#0b0b14ee,#0b0b1400);pointer-events:none;letter-spacing:.2px}
+#title small{display:block;font:500 12px -apple-system,sans-serif;color:#aab;margin-top:2px}
+.wow{position:relative;width:26px;height:26px}
+.wow i{position:absolute;inset:0;border-radius:50%;background:#ff4d6d;animation:pulse 1.8s ease-out infinite}
+.wow i:nth-child(2){animation-delay:.9s}
+.wow b{position:absolute;inset:5px;border-radius:50%;background:#ff4d6d;border:2px solid #fff;box-shadow:0 0 16px #ff4d6d}
+@keyframes pulse{0%{transform:scale(.6);opacity:.8}100%{transform:scale(2.6);opacity:0}}
+#panel{position:fixed;z-index:1001;background:#12162aee;color:#fff;backdrop-filter:blur(8px);box-shadow:0 0 30px #000a;overflow:auto;transition:transform .25s;
+ top:0;right:0;bottom:0;width:340px;padding:70px 18px 18px;box-sizing:border-box;transform:translateX(100%)}
+#panel.open{transform:none}
+#panel h2{margin:0 0 4px;font-size:22px;line-height:1.2}#panel .addr{color:#99a;font-size:13px;margin-bottom:12px}
+.fact{background:#1c2140;border-radius:12px;padding:12px;margin-bottom:10px;border-left:4px solid #ff4d6d}
+.fact .r{font-size:26px;font-weight:800;color:#ff8fa3}.fact .t{font-weight:700}.fact .s{color:#ccd;font-size:13px;margin-top:4px}.fact .d{color:#889;font-size:11px;margin-top:4px}
+#x{position:absolute;top:70px;right:14px;background:none;border:0;color:#fff;font-size:22px;cursor:pointer}
+@media(max-width:700px){#panel{top:auto;left:0;right:0;width:auto;max-height:55%;padding:16px;border-radius:18px 18px 0 0;transform:translateY(100%)}#x{top:10px}}
+</style></head><body>
+<div id="title">Your Block, Unfiltered<small>Tap any corner of San Francisco — see what makes it weird</small></div>
+<div id="map"></div>
+<div id="panel"><button id="x" aria-label="close">✕</button><div id="out"></div></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+window.map=L.map('map',{zoomControl:false}).setView([37.7800,-122.4200],13);
+L.control.zoom({position:'bottomleft'}).addTo(map);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(map);
+const WOW=[['Mission St','24th St',37.7522,-122.4184],['Chestnut St','Fillmore St',37.8004,-122.4363],['Market St','6th St',37.7808,-122.4100],['Bryant St','24th St',37.7527,-122.4090],['Stockton St','Clay St',37.7936,-122.4078]];
+// extra known corners so a random click snaps to a real-looking intersection
+const XS=WOW.concat([['Guerrero St','20th St',37.7587,-122.4240],['Valencia St','16th St',37.7650,-122.4216],['Haight St','Ashbury St',37.7702,-122.4467],['Polk St','Union St',37.7978,-122.4220],['Geary Blvd','Divisadero St',37.7822,-122.4372],['Van Ness Ave','Market St',37.7752,-122.4195],['Irving St','9th Ave',37.7640,-122.4660],['Castro St','18th St',37.7609,-122.4350],['Columbus Ave','Broadway',37.7978,-122.4079],['3rd St','King St',37.7766,-122.3944]]);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const panel=document.getElementById('panel'),out=document.getElementById('out');
+let sel;
+async function show(street,cross,lat,lon){
+  panel.classList.add('open');out.innerHTML='<h2>Looking up…</h2>';
+  if(sel)sel.remove();sel=L.circleMarker([lat,lon],{radius:9,color:'#fff',fillColor:'#7aa5ff',fillOpacity:.9}).addTo(map);
+  try{
+    const r=await fetch('/api/block?street='+encodeURIComponent(street)+'&cross='+encodeURIComponent(cross));
+    const b=await r.json();if(!r.ok||b.error)throw 0;
+    out.innerHTML=`<h2>${esc(b.nickname)}</h2><div class="addr">${esc(b.address)}</div>`+(b.facts||[]).slice(0,3).map(f=>
+     `<div class="fact"><div class="r">${esc(f.ratio)}x</div><div class="t">${esc(f.title)}</div><div class="s">${esc(f.sentence)}</div><div class="d">${esc(f.count)} · ${esc(f.period)} · ${esc(f.dataset)}</div></div>`).join('');
+  }catch(e){out.innerHTML='<h2>No data for this block</h2><div class="addr">Try another corner.</div>'}
+}
+const near=(lat,lon)=>XS.reduce((a,x)=>{const d=(x[2]-lat)**2+((x[3]-lon)*.8)**2;return d<a[0]?[d,x]:a},[1e9])[1];
+map.on('click',e=>{const x=near(e.latlng.lat,e.latlng.lng);show(x[0],x[1],x[2],x[3])});
+for(const [st,cr,lat,lon] of WOW)
+  L.marker([lat,lon],{icon:L.divIcon({className:'',iconSize:[26,26],html:'<div class="wow"><i></i><i></i><b></b></div>'}),title:st+' & '+cr})
+   .on('click',()=>{map.panTo([lat,lon]);show(st,cr,lat,lon)}).addTo(map);
+document.getElementById('x').onclick=()=>panel.classList.remove('open');
+</script>
+<script src="/memory-layer.js"></script>
+<script src="/memory-chat.js"></script></body></html>
