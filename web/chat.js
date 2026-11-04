@@ -2,8 +2,8 @@
    Uses window.map (the map screen's Leaflet map) when there is one, otherwise its own map in the panel. */
 (()=>{
 const css=`
-#ai-open{position:fixed;right:20px;bottom:20px;z-index:20;font:600 15px -apple-system,sans-serif;padding:13px 18px;border-radius:99px;border:1px solid #8fb4ff55;background:#0b1a3aee;color:#dce8ff;cursor:pointer;box-shadow:0 8px 30px #000a,0 0 30px #4f7dff44;backdrop-filter:blur(10px)}
-#ai{position:fixed;right:20px;bottom:20px;top:20px;width:400px;z-index:21;display:none;flex-direction:column;background:#070b17ee;border:1px solid #ffffff1f;border-radius:20px;box-shadow:0 20px 60px #000c;backdrop-filter:blur(14px);color:#fff;font-family:-apple-system,BlinkMacSystemFont,sans-serif;overflow:hidden}
+#ai-open{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:1100;font:600 15px -apple-system,sans-serif;padding:13px 18px;border-radius:99px;border:1px solid #8fb4ff55;background:#0b1a3aee;color:#dce8ff;cursor:pointer;box-shadow:0 8px 30px #000a,0 0 30px #4f7dff44;backdrop-filter:blur(10px)}
+#ai{position:fixed;left:20px;bottom:20px;top:70px;width:400px;z-index:1100;display:none;flex-direction:column;background:#070b17ee;border:1px solid #ffffff1f;border-radius:20px;box-shadow:0 20px 60px #000c;backdrop-filter:blur(14px);color:#fff;font-family:-apple-system,BlinkMacSystemFont,sans-serif;overflow:hidden}
 #ai.on{display:flex}
 #ai header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #ffffff14;font-weight:700;font-size:15px}
 #ai header small{color:#8fb4ff;font-weight:500;font-size:12px;letter-spacing:1px;text-transform:uppercase;margin-left:8px}
@@ -24,7 +24,7 @@ const css=`
 #ai input{flex:1;min-width:0;font-size:16px;padding:12px 14px;border-radius:12px;border:1px solid #ffffff22;background:#0a0f1e;color:#fff;outline:0}
 #ai form button{width:auto;margin:0;padding:0 16px;border-radius:12px;border:0;background:#fff;color:#0a0f1e;font-weight:700;font-size:15px;cursor:pointer}
 .leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#0b1a3a;color:#fff}.leaflet-container{background:#0a0f1e}.ai-tiles{filter:invert(1) hue-rotate(200deg) brightness(.8) contrast(.9) saturate(.6)}.ai-m b{color:#fff}
-@media(max-width:640px){#ai{left:0;right:0;bottom:0;top:auto;width:auto;height:78vh;border-radius:20px 20px 0 0}#ai-map{height:160px}#ai-open{right:16px;bottom:16px}}`;
+@media(max-width:640px){#ai{left:0;right:0;bottom:0;top:auto;width:auto;height:78vh;border-radius:20px 20px 0 0}#ai-map{height:160px}#ai-open{bottom:16px}}`;
 document.head.insertAdjacentHTML('beforeend',`<style>${css}</style><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">`);
 document.body.insertAdjacentHTML('beforeend',`<button id="ai-open">✦ Ask AI about SF</button>
 <section id="ai" aria-label="AI chat"><header><span>Ask about SF<small>Mistral × DataSF</small></span><button id="ai-x" aria-label="Close">×</button></header>
