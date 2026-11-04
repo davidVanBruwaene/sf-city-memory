@@ -12,7 +12,7 @@ input{font-size:17px;padding:15px;border-radius:14px;border:1px solid #33334a;ba
 button{font:600 17px inherit;font-family:inherit;padding:15px;border-radius:14px;border:0;background:#ff5c8a;color:#fff}
 button.ghost{background:#181826;border:1px solid #33334a;color:#cfcfe6;font-weight:500;font-size:15px}
 #err{color:#ffb454;font-size:14px;min-height:18px}
-#deck{display:none;height:100%;position:relative}
+#deck{display:none;height:100%}
 #cards{display:flex;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 #cards::-webkit-scrollbar{display:none}
 .card{flex:0 0 100%;scroll-snap-align:center;display:flex;flex-direction:column;justify-content:center;padding:36px 28px 70px;gap:14px}
@@ -21,14 +21,17 @@ button.ghost{background:#181826;border:1px solid #33334a;color:#cfcfe6;font-weig
 .big{font-size:104px;line-height:.95;font-weight:900;letter-spacing:-4px;background:linear-gradient(135deg,#ff5c8a,#ffb454);-webkit-background-clip:text;color:transparent}
 .sent{font-size:21px;line-height:1.3}.cnt{font-size:16px;color:#cfcfe6}.src{font-size:12px;color:#7a7a92}
 .time{font-size:72px;font-weight:900;letter-spacing:-2px;color:#7ee0a8}
-.c1{background:linear-gradient(160deg,#2a1240,#0d0d14)}.c2{background:linear-gradient(160deg,#10223f,#0d0d14)}
-.c3{background:linear-gradient(160deg,#3a1226,#0d0d14)}.c4{background:linear-gradient(160deg,#3a2a10,#0d0d14)}
-.c5{background:linear-gradient(160deg,#0f3326,#0d0d14)}
+.c1{background:linear-gradient(160deg,#2a124099,#0d0d1400)}.c2{background:linear-gradient(160deg,#10223f99,#0d0d1400)}
+.c3{background:linear-gradient(160deg,#3a122699,#0d0d1400)}.c4{background:linear-gradient(160deg,#3a2a1099,#0d0d1400)}
+.c5{background:linear-gradient(160deg,#0f332699,#0d0d1400)}
+#bw{position:fixed;inset:0;z-index:0;pointer-events:none}#blob{width:100%;height:100%;display:block}
+#form,#deck{position:relative;z-index:1}#form{background:none}
 #dots{position:absolute;bottom:26px;left:0;right:0;display:flex;justify-content:center;gap:8px}
 #dots i{width:8px;height:8px;border-radius:4px;background:#ffffff40;transition:.2s}#dots i.on{background:#fff;width:22px}
 #back{position:absolute;top:14px;right:16px;z-index:2;background:#ffffff18;font-size:13px;padding:8px 12px;border-radius:12px}
 .hint{color:#ffffff80;font-size:13px}
 </style></head><body>
+<div id="bw"><canvas id="blob"></canvas></div>
 <form id="form">
   <h1>Your Block,<br><b>Unfiltered.</b></h1>
   <p class="sub">What's weird about your corner of San Francisco? Real city data, no filter.</p>
@@ -40,16 +43,47 @@ button.ghost{background:#181826;border:1px solid #33334a;color:#cfcfe6;font-weig
 </form>
 <div id="deck"><button id="back">New block</button><div id="cards"></div><div id="dots"></div></div>
 <script>
+/* particle blob: city data points -> AI reads the block. blob.mode('idle'|'busy'|'calm') */
+const blob=(()=>{
+  const cv=document.getElementById('blob'),c=cv.getContext('2d'),P=[];
+  let W,H,dpr,R,amp=.18,spd=.4,al=.95,t=0,tgt={a:.18,s:.4,l:.95},rot=0;
+  const M={idle:{a:.18,s:.4,l:.95},busy:{a:.5,s:2.2,l:1},calm:{a:.06,s:.15,l:.38}};
+  function size(){
+    const r=cv.parentElement.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);
+    W=r.width;H=r.height;cv.width=W*dpr;cv.height=H*dpr;R=Math.min(W,H)*.4;
+    const n=Math.max(500,Math.min(2600,Math.round(W*H/300)));P.length=0;
+    for(let i=0;i<n;i++){const y=1-2*(i+.5)/n,r=Math.sqrt(1-y*y),a=i*2.39996;P.push([Math.cos(a)*r,y,Math.sin(a)*r,Math.random()*6.28])}
+  }
+  function frame(){
+    t+=.016*spd;rot+=.003+.004*spd;
+    amp+=(tgt.a-amp)*.04;spd+=(tgt.s-spd)*.04;al+=(tgt.l-al)*.04;
+    c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,W,H);
+    const cx=W/2,cy=H*.42,cr=Math.cos(rot),sr=Math.sin(rot),s=Math.min(1.7,1+amp*.4);
+    for(const p of P){
+      const [x,y,z,ph]=p;
+      const d=1+amp*(Math.sin(x*3+t*2+ph*.1)+Math.sin(y*4-t*1.7)+Math.sin(z*3.5+t*2.3))/3*1.6;
+      const X=(x*cr+z*sr)*d,Z=(-x*sr+z*cr)*d,Y=y*d,f=.6+.4*(Z+1)/2;
+      c.fillStyle=`hsla(${205+Z*25+amp*40},90%,${72+Z*12}%,${al*f})`;
+      const q=(1.5+f)*(amp>.3?1.3:1);
+      c.fillRect(cx+X*R*s,cy+Y*R*s,q,q);
+    }
+    requestAnimationFrame(frame);
+  }
+  addEventListener('resize',size);size();
+  if(matchMedia('(prefers-reduced-motion:reduce)').matches){spd=0;M.idle.s=M.busy.s=M.calm.s=.02}
+  frame();
+  return {mode:m=>{tgt=M[m]||M.idle}};
+})();
 const $=s=>document.querySelector(s), esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 let current=null;
 async function go(street,cross){
-  $('#err').textContent='Looking up your block…';
+  $('#err').textContent='Looking up your block…';blob.mode('busy');
   try{
     const r=await fetch('/api/block?street='+encodeURIComponent(street)+'&cross='+encodeURIComponent(cross));
     const b=await r.json();
-    if(!r.ok||b.error){$('#err').textContent="Couldn't find that block. Try: "+(b.examples||[]).join(' · ');return}
-    current=b;render(b);$('#err').textContent='';
-  }catch(e){$('#err').textContent='Network trouble — try again.'}
+    if(!r.ok||b.error){$('#err').textContent="Couldn't find that block. Try: "+(b.examples||[]).join(' · ');blob.mode('idle');return}
+    current=b;render(b);$('#err').textContent='';blob.mode('calm');
+  }catch(e){$('#err').textContent='Network trouble — try again.';blob.mode('idle')}
 }
 function render(b){
   const cards=[`<div class="card c1"><div class="k">Your block is</div><div class="nick">${esc(b.nickname)}</div><div class="src">${esc(b.address)}</div><div class="hint">swipe →</div></div>`];
@@ -81,5 +115,5 @@ async function share(){
 }
 $('#form').onsubmit=e=>{e.preventDefault();go($('#street').value.trim(),$('#cross').value.trim())};
 $('#ex').onclick=()=>{$('#street').value='Mission St';$('#cross').value='24th St';go('Mission St','24th St')};
-$('#back').onclick=()=>{$('#deck').style.display='none';$('#form').style.display='flex'};
+$('#back').onclick=()=>{$('#deck').style.display='none';$('#form').style.display='flex';blob.mode('idle')};
 </script></body></html>
