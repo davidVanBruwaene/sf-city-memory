@@ -13,6 +13,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SOURCE = os.getenv("BLOCK_SOURCE", "mock")  # the one switch: "mock" or "real"
 EXAMPLES = ["Mission St / 24th St", "Chestnut St / Fillmore St", "Guerrero St / 20th St"]
 app = Flask(__name__, static_folder=None)
+if os.getenv("ELASTIC_ENDPOINT") and os.getenv("MISTRAL_API_KEY"):  # city-memory writes from the web chat
+    from memweb import bp as memweb_bp
+    app.register_blueprint(memweb_bp)
 room, room_lock = {}, threading.Lock()
 ROOM_INDEX = "block-room"
 _es = None
@@ -112,6 +115,11 @@ def _room_json(blocks):
 @app.get("/")
 def phone():
     return send_from_directory(os.path.join(HERE, "web"), "index.html")
+
+
+@app.get("/memory-chat.js")
+def memory_chat_js():
+    return send_from_directory(os.path.join(HERE, "web"), "memory-chat.js")
 
 
 @app.get("/room")
