@@ -4,8 +4,10 @@
 
 ## Setup (once)
 
-1. Quit Claude Desktop fully (Cmd+Q) and reopen it. `sf-city` is in `claude_desktop_config.json`.
-2. New chat: the tools menu should list `sf-city` with `street_cleaning`, `ask_city` and `remember`.
+1. In Terminal.app (not the terminal inside Claude), run `.venv/bin/python connect_claude.py` from this folder.
+   It quits Claude, adds `sf-city` to `claude_desktop_config.json` and reopens Claude. Claude rewrites that file
+   from memory while it runs, so an edit made with Claude open is lost.
+2. New chat, then + and Connectors: `sf-city` should be listed, with `street_cleaning`, `ask_city` and `remember`.
    Click "Always allow" the first time each tool runs.
 
 ## Type these into Claude
