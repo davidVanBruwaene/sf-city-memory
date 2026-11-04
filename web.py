@@ -95,6 +95,13 @@ threading.Thread(target=_prewarm, daemon=True).start()
 def api_block():
     street = request.args.get("street", "").strip()
     cross = request.args.get("cross", "").strip()
+    if not street and request.args.get("lat") and request.args.get("lon"):  # a click anywhere on the map
+        try:
+            street, cross = _nearest_block(float(request.args["lat"]), float(request.args["lon"]))
+        except Exception as e:
+            return jsonify(error="not_found", detail=str(e), examples=EXAMPLES), 502
+        if not street:
+            return jsonify(error="not_found", detail="no street-cleaning block within 300m", examples=EXAMPLES), 404
     if not street:
         return jsonify(error="not_found", examples=EXAMPLES), 400
     fast = request.args.get("fast") == "1"
@@ -119,7 +126,31 @@ def api_block():
                 _es.index(index=ROOM_INDEX, id=b["address"], document=room[b["address"]], refresh=True)
             except Exception:
                 pass
-    return jsonify(b)
+    return jsonify(_never_empty(b) | {"street": street, "cross": cross})
+
+
+def _nearest_block(lat, lon, max_m=300):
+    """(corridor, first cross street of limits) of the street-cleaning block nearest lat,lon, or ("", "") past max_m."""
+    es = _client()
+    if es is None:
+        raise RuntimeError("no elastic configured")
+    hits = es.search(index="sf-street-sweeping", size=1, source_includes=["corridor", "limits"],
+                     sort=[{"_geo_distance": {"location": {"lat": lat, "lon": lon}, "order": "asc", "unit": "m"}}])["hits"]["hits"]
+    if not hits or hits[0]["sort"][0] > max_m:
+        return "", ""
+    b = hits[0]["_source"]
+    return b["corridor"], (b.get("limits") or "").split(" - ")[0].strip()
+
+
+def _never_empty(b):
+    """A block with no unusual facts still gets one card: 'Remarkably normal block' with its cleaning schedule and officer time."""
+    if b.get("facts"):
+        return b
+    sw = b.get("sweeping") or {}
+    officer = f"officer usually by {sw['officer_usually_by']}" if sw.get("officer_usually_by") else "Not enough tickets to estimate the officer"
+    schedule = f"Street cleaning {sw['schedule']}" if sw.get("schedule") else "No street-cleaning schedule found"
+    return dict(b, facts=[dict(title="Remarkably normal block", ratio=1.0, count=schedule, period=officer, dataset="DataSF street sweeping",
+                               sentence=f"Nothing here stands out from the SF average. {schedule}; {officer[0].lower() + officer[1:]}.", rank=None)])
 
 
 @app.get("/api/nickname")
@@ -259,9 +290,12 @@ def api_sweep_officer():
         from sweep_officer import es, officer_timing
         near = es.search(index="sf-sweep-tickets", size=1, sort=[{"_geo_distance": {"location": loc, "order": "asc"}}],
                          query={"wildcard": {"block_key": f"* {name_words(street)}*"}})["hits"]["hits"]
-        return jsonify(officer=officer_timing(near[0]["_source"]["block_key"], day) if near else None)
+        officer = officer_timing(near[0]["_source"]["block_key"], day) if near else None
+        # null here is thin data, not a bad match: e.g. 300 LEAVENWORTH ST has 2 Wednesday tickets in 10 weeks (needs 4 weeks)
+        return jsonify(officer=officer, block_key=near[0]["_source"]["block_key"] if near else None,
+                       note=None if officer else "Not enough tickets to estimate")
     except Exception:
-        return jsonify(officer=None)
+        return jsonify(officer=None, note="Not enough tickets to estimate")
 
 
 @app.get("/sweep-layer.js")
