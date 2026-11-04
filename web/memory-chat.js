@@ -91,7 +91,6 @@
         if (r.error) err(r.error);
         if (r.reply) showReply(r.reply, r.sources || []);
         if (r.facts && r.facts.length) factCard(r.facts, text);
-        if (r.question) bubble('cm-a', esc(r.question));
         if (!r.error && !r.reply && !r.question && !(r.facts && r.facts.length)) bubble('cm-a cm-dim', 'Nothing to add from that.');
       });
     });
@@ -141,7 +140,7 @@
 
   function savedBubble(it) {
     var p = it.replaced, h;
-    if (p) h = 'Updated “' + esc(p.title) + '” (first reported by ' + esc(p.owner) + ').' +
+    if (p) h = 'Updated “' + esc(p.title) + '” (first reported by ' + esc(it.first_owner || p.owner) + ', last updated by ' + esc(p.owner) + ').' +
       '<div class="cm-before">Before: ' + esc(p.body) + '</div><div>Now: ' + esc(it.body) + '</div>';
     else h = 'Saved “' + esc(it.title) + '”.';
     h += it.location ? '<div>📍 on the map' + (it.geo_source ? ' <span class="cm-dim">' + esc(it.geo_source) + '</span>' : '') + '</div>'
