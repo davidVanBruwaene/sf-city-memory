@@ -1,1 +1,1 @@
-{ "functions": { "app.py": { "includeFiles": "{web/**,block.py,citymem.py}" } } }
+{ "functions": { "app.py": { "includeFiles": "{web/**,block.py,citymem.py,sfhack.py}" } } }
