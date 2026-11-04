@@ -21,7 +21,7 @@
       if (t === 'cm') { $('#ai-x') && $('#ai-x').click(); window.cityMemoryChat && cityMemoryChat.open(); } else { const cx = $('#cm .cm-x'); cx && cx.click(); $('#ai-open') && $('#ai-open').click(); } };
     return d; };
   let done = {};
-  const wire = () => {
+  let wire = () => {
     adopt();
     const ai = $('#ai'), cm = $('#cm .cm-panel');
     if (ai && !done.ai) { done.ai = 1; ai.querySelector('header').after(tabs('ai')); new MutationObserver(syncAi).observe(ai, {attributes: true, attributeFilter: ['class']}); }
@@ -30,5 +30,12 @@
   const lit = () => chat.classList.toggle('on', !!($('#ai.on') || $('#cm.cm-open')));
   function syncAi() { if ($('#ai.on') && $('#cm.cm-open')) $('#cm .cm-x').click(); lit(); }       // last opener wins
   function syncCm() { if ($('#ai.on') && $('#cm.cm-open')) $('#ai-x').click(); lit(); }
+  // phone: street-cleaning widget folds to one line (🧹 Street cleaning ▾), tap to open
+  const fold = () => { const b = $('.sw-bar'); if (!b || b.dataset.fold) return; b.dataset.fold = 1;
+    const mq = matchMedia('(max-width:700px)'), t = document.createElement('button'); t.className = 'bx-sw-t';
+    const set = f => { b.classList.toggle('bx-fold', f); t.textContent = '🧹 Street cleaning ' + (f ? '▾' : '▴'); };
+    t.onclick = () => set(!b.classList.contains('bx-fold')); [...b.childNodes].forEach(n => n.nodeType === 3 && /Street cleaning/.test(n.textContent) && n.remove()); b.prepend(t); set(mq.matches);
+    mq.addEventListener('change', e => set(e.matches)); };
+  const wire0 = wire; wire = () => { wire0(); fold(); };
   wire(); let n = 0; const t = setInterval(() => { wire(); if (++n > 20) clearInterval(t); }, 500);
 })();

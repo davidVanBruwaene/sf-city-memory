@@ -59,6 +59,7 @@ html body .pk-toast{z-index:var(--z-toast);top:calc(var(--top-h) + var(--sp-3));
 
 /* ---- one legend: the cleaning widget (top-left) ---- */
 html body .sw-bar{position:fixed;left:var(--sp-4);top:calc(var(--top-h) + var(--sp-3));z-index:var(--z-ui);width:240px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);box-shadow:var(--shadow-s);backdrop-filter:blur(10px);font:600 var(--fs-s) var(--font);padding:10px 12px;margin:0}
+html body .sw-bar .bx-sw-t{display:none}
 html body .sw-bar button{background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-s);font-family:var(--font)}
 html body .sw-bar .lg{color:var(--text-2);font-size:11px}
 html body .leaflet-bottom.leaflet-left{margin-bottom:var(--bottom-h)}
@@ -99,9 +100,16 @@ html body #st-bar button.on{background:var(--pink)}
 @media(max-width:700px){
   :root{--top-h:46px;--bottom-h:50px}
   html body #title{font-size:17px}html body #title small{font-size:10px;letter-spacing:.1em}
-  #bx-actions{top:var(--top-h);left:0;right:0;padding:var(--sp-2) var(--sp-3);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  #bx-actions{top:var(--top-h);left:0;right:0;max-width:none;padding:var(--sp-2) var(--sp-3);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   #bx-actions::-webkit-scrollbar{display:none}
-  #bx-actions .pk-bar,#bx-actions .leaflet-control{flex:none}
+  #bx-actions{scroll-snap-type:x proximity;scroll-padding:0 var(--sp-3);-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)}
+  #bx-actions::after{content:"";flex:0 0 var(--sp-5)}
+  #bx-actions .pk-bar,#bx-actions .leaflet-control{flex:none;scroll-snap-align:start}
+  html body #bx-actions button,html body #bx-chat,html body #st-go{scroll-snap-align:start}
+  html body .sw-bar.bx-fold{width:auto;padding:0}
+  html body .sw-bar.bx-fold>*:not(.bx-sw-t){display:none}
+  html body .sw-bar .bx-sw-t{display:block;width:100%;margin:0;padding:8px 12px;background:none;border:0;color:var(--text);font:600 var(--fs-s) var(--font);text-align:left;white-space:nowrap}
+  html body .sw-bar:not(.bx-fold) .bx-sw-t{padding:0 0 6px}
   html body #bx-actions button,html body #bx-chat,html body .mm-tog,html body #st-go{padding:8px 12px;font-size:13px}
   html body #dc-bar{left:0;right:0;bottom:var(--sp-2);justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;padding:0 var(--sp-3);pointer-events:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   html body #dc-bar::-webkit-scrollbar{display:none}
