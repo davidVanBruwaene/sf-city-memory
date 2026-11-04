@@ -312,6 +312,16 @@ def memory_map_page():
     return send_from_directory(os.path.join(HERE, "web"), "memory-map.html")
 
 
+@app.get("/theme.css")
+def theme_css():
+    return send_from_directory(os.path.join(HERE, "web"), "theme.css")
+
+
+@app.get("/theme.js")
+def theme_js():
+    return send_from_directory(os.path.join(HERE, "web"), "theme.js")
+
+
 @app.get("/story.js")
 def story_js():
     return send_from_directory(os.path.join(HERE, "web"), "story.js")

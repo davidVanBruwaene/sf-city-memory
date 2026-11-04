@@ -2,10 +2,10 @@
    Each scene fires its map actions and never waits on the API, so a slow or failed call can't block the next scene. */
 (() => {
   const css = document.createElement('style');
-  css.textContent = `#st-go{position:fixed;z-index:1002;top:62px;left:16px;background:#ff4d6d;color:#fff;border:0;border-radius:99px;padding:10px 16px;font:700 14px -apple-system,sans-serif;cursor:pointer;box-shadow:0 4px 20px #000a}
+  css.textContent = `#st-go{position:fixed;z-index:1002;top:62px;left:16px;background:#ff5c8a;color:#fff;border:0;border-radius:99px;padding:10px 16px;font:700 14px -apple-system,sans-serif;cursor:pointer;box-shadow:0 4px 20px #000a}
 #st-cap{position:fixed;z-index:1200;left:50%;bottom:84px;transform:translateX(-50%);max-width:min(900px,92vw);text-align:center;color:#fff;font:800 clamp(20px,3.2vw,36px)/1.25 -apple-system,sans-serif;background:#05060fd9;padding:14px 26px;border-radius:16px;box-shadow:0 8px 40px #000c;display:none;pointer-events:none;text-shadow:0 2px 8px #000}
 #st-bar{position:fixed;z-index:1201;top:62px;left:16px;display:none;gap:6px;align-items:center;background:#05060fd9;color:#fff;border-radius:99px;padding:6px 8px 6px 14px;font:600 13px -apple-system,sans-serif}
-#st-bar button{background:#ffffff1a;color:#fff;border:0;border-radius:99px;padding:6px 11px;font:600 13px -apple-system,sans-serif;cursor:pointer}#st-bar button.on{background:#ff4d6d}
+#st-bar button{background:#ffffff1a;color:#fff;border:0;border-radius:99px;padding:6px 11px;font:600 13px -apple-system,sans-serif;cursor:pointer}#st-bar button.on{background:#ff5c8a}
 @media(max-width:700px){#st-cap{bottom:150px;font-size:20px;padding:10px 16px}}`;
   document.head.appendChild(css);
   document.body.insertAdjacentHTML('beforeend', `<button id="st-go">▶ Tell me SF's story</button><div id="st-cap" role="status" aria-live="polite"></div>
