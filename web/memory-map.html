@@ -6,9 +6,9 @@ html,body,#map{height:100%;margin:0;background:#0b0b14;font-family:-apple-system
 #title{position:fixed;top:0;left:0;right:0;z-index:1000;padding:12px 16px;color:#fff;font:800 20px -apple-system,sans-serif;background:linear-gradient(#0b0b14ee,#0b0b1400);pointer-events:none;letter-spacing:.2px}
 #title small{display:block;font:500 12px -apple-system,sans-serif;color:#aab;margin-top:2px}
 .wow{position:relative;width:26px;height:26px}
-.wow i{position:absolute;inset:0;border-radius:50%;background:#ff4d6d;animation:pulse 1.8s ease-out infinite}
+.wow i{position:absolute;inset:0;border-radius:50%;background:#ff5c8a;animation:pulse 1.8s ease-out infinite}
 .wow i:nth-child(2){animation-delay:.9s}
-.wow b{position:absolute;inset:5px;border-radius:50%;background:#ff4d6d;border:2px solid #fff;box-shadow:0 0 16px #ff4d6d}
+.wow b{position:absolute;inset:5px;border-radius:50%;background:#ff5c8a;border:2px solid #fff;box-shadow:0 0 16px #ff5c8a}
 @keyframes pulse{0%{transform:scale(.6);opacity:.8}100%{transform:scale(2.6);opacity:0}}
 #panel{position:fixed;z-index:1001;background:#12162af2;color:#fff;backdrop-filter:blur(8px);box-shadow:0 0 30px #000a;overflow:auto;transition:transform .25s;
  top:0;right:0;bottom:0;width:380px;padding:70px 20px 20px;box-sizing:border-box;transform:translateX(100%)}
@@ -16,25 +16,25 @@ html,body,#map{height:100%;margin:0;background:#0b0b14;font-family:-apple-system
 #panel h2{margin:0 0 4px;font-size:22px;line-height:1.2;padding-right:30px}#panel .addr{color:#99a;font-size:13px;margin-bottom:12px}
 h2.pending{background:linear-gradient(90deg,#fff3,#fff8,#fff3);background-size:200%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:sh 1.2s linear infinite}
 @keyframes sh{to{background-position:-200% 0}}
-.fact{background:#1c2140;border-radius:12px;padding:14px;margin-bottom:10px;border-left:4px solid #ff4d6d;min-height:120px;touch-action:pan-y}
-.fact .r{font-size:30px;font-weight:800;color:#ff8fa3}.fact .t{font-weight:700}.fact .s{color:#ccd;font-size:14px;margin-top:4px}.fact .d{color:#889;font-size:11px;margin-top:6px}
+.fact{background:#1c2140;border-radius:12px;padding:14px;margin-bottom:10px;border-left:4px solid #ff5c8a;min-height:120px;touch-action:pan-y}
+.fact .r{font-size:30px;font-weight:800;color:#ff8fb0}.fact .t{font-weight:700}.fact .s{color:#ccd;font-size:14px;margin-top:4px}.fact .d{color:#889;font-size:11px;margin-top:6px}
 .nav{display:flex;align-items:center;justify-content:center;gap:14px;margin:6px 0 12px}
 .nav button{background:#1c2140;border:0;color:#fff;width:40px;height:40px;border-radius:50%;font-size:18px;cursor:pointer}
-.nav .dot{width:8px;height:8px;border-radius:50%;background:#556;cursor:pointer}.nav .dot.on{background:#ff4d6d}
-#share{width:100%;background:#ff4d6d;color:#fff;border:0;border-radius:10px;padding:12px;font:700 15px -apple-system,sans-serif;cursor:pointer}
+.nav .dot{width:8px;height:8px;border-radius:50%;background:#556;cursor:pointer}.nav .dot.on{background:#ff5c8a}
+#share{width:100%;background:#ff5c8a;color:#fff;border:0;border-radius:10px;padding:12px;font:700 15px -apple-system,sans-serif;cursor:pointer}
 #presets{position:fixed;z-index:1000;bottom:18px;left:64px;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 440px)}
 #presets button{font:600 13px -apple-system,sans-serif;padding:7px 12px;border-radius:99px;background:#12162add;color:#dfe6ff;border:1px solid #ffffff33;cursor:pointer}
 #presets button:hover{background:#2a3470}
 @media(max-width:700px){#presets{max-width:calc(100% - 24px);bottom:auto;top:108px;left:12px}}
 #x{position:absolute;top:70px;right:14px;background:none;border:0;color:#fff;font-size:24px;cursor:pointer;padding:8px}
 #grab{display:none}
-#hint{position:fixed;z-index:1002;left:50%;bottom:28px;transform:translateX(-50%);background:#ff4d6d;color:#fff;font:700 15px -apple-system,sans-serif;padding:10px 18px;border-radius:24px;box-shadow:0 4px 20px #000a;transition:opacity .4s;pointer-events:none;white-space:nowrap}
+#hint{position:fixed;z-index:1002;left:50%;bottom:28px;transform:translateX(-50%);background:#ff5c8a;color:#fff;font:700 15px -apple-system,sans-serif;padding:10px 18px;border-radius:24px;box-shadow:0 4px 20px #000a;transition:opacity .4s;pointer-events:none;white-space:nowrap}
 #blob{position:fixed;z-index:1000;width:180px;height:180px;margin:-90px 0 0 -90px;pointer-events:none;display:none}
 #prog{position:fixed;z-index:1000;transform:translateX(-50%);color:#fff;font:600 13px -apple-system,sans-serif;background:#000a;padding:4px 10px;border-radius:12px;display:none;pointer-events:none;white-space:nowrap}
 @media(max-width:700px){#panel{top:auto;left:0;right:0;width:auto;height:58vh;max-height:58vh;padding:22px 16px 16px;border-radius:18px 18px 0 0;transform:translateY(100%)}#x{top:6px;right:8px;font-size:28px;padding:10px}
 #grab{display:block;position:absolute;top:8px;left:50%;width:40px;height:4px;margin-left:-20px;border-radius:2px;background:#556}#hint{bottom:70px}}
-</style></head><body>
-<div id="title">Your Block, Unfiltered<small>Tap a glowing pin (or any corner) — see what makes it weird</small></div>
+</style><link rel="stylesheet" href="/theme.css"></head><body>
+<div id="title"><span class="bx-word">Your Block, <b>Unfiltered.</b></span><small>SF City Memory · Elastic × Mistral</small></div>
 <div id="map"></div>
 <div id="presets"></div>
 <div id="panel"><div id="grab"></div><button id="x" aria-label="close">✕</button><div id="out"></div></div>
@@ -123,4 +123,4 @@ map.on('click',()=>hint.style.opacity=0);
 setTimeout(()=>{hint.style.opacity=0},9000);
 {const k=new URLSearchParams(location.search).get('b');if(k){const [st,cr]=k.split('|');const x=XS.find(x=>x[0]==st&&x[1]==cr);if(x){map.setView([x[2],x[3]],14);show(x[0],x[1],x[2],x[3])}}}
 </script>
-<script src="/memory-layer.js"></script><script src="/chat.js"></script><script src="/sweep-layer.js"></script><script src="/story.js"></script><script src="/park.js"></script><script src="/memory-chat.js"></script><script src="/demo-chips.js"></script></body></html>
+<script src="/memory-layer.js"></script><script src="/chat.js"></script><script src="/sweep-layer.js"></script><script src="/story.js"></script><script src="/park.js"></script><script src="/memory-chat.js"></script><script src="/demo-chips.js"></script><script src="/theme.js"></script></body></html>

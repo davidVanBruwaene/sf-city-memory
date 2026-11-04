@@ -1,0 +1,119 @@
+/* Your Block, Unfiltered — one design system. Tokens first, then the shared shell (top bar, chips, result rail, chat dock).
+   Modules inject their own <style> later, so overrides here use `html body` to win. */
+:root{
+  --bg:#05070f; --surface:#0a0f1ef0; --surface-2:#161b2e; --line:#ffffff1f; --line-2:#ffffff33;
+  --text:#fff; --text-2:#c7d2ee; --muted:#8a93ad;
+  --blue:#7aa5ff; --blue-d:#4f7dff; --pink:#ff5c8a; --pink-2:#ff8fb0;   /* pink = wow / brand */
+  --red:#ff4d4d; --orange:#ffa534; --green:#3ecf6e;                      /* red = cleaning now · orange = within 2h · green = safe */
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;
+  --fs-s:12px; --fs-m:14px; --fs-l:17px; --fs-xl:22px;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px;
+  --r-s:10px; --r-m:14px; --r-l:20px; --r-pill:99px;
+  --shadow:0 10px 40px #000b; --shadow-s:0 4px 18px #000a; --glow:0 0 30px #4f7dff44;
+  --z-ui:1000; --z-bar:1090; --z-chat:1150; --z-rail:1160; --z-toast:1300;
+  --top-h:56px; --bottom-h:100px;
+}
+html body{font-family:var(--font)}
+
+/* ---- brand bar ---- */
+html body #title{position:fixed;top:0;left:0;right:0;height:var(--top-h);z-index:var(--z-ui);display:flex;flex-direction:column;justify-content:center;
+  padding:0 var(--sp-4);background:linear-gradient(#05070fee,#05070f00);pointer-events:none;font:800 20px/1.1 var(--font);letter-spacing:-.02em}
+html body #title .bx-word{color:var(--text)}html body #title .bx-word b{color:var(--pink);font-weight:800}
+html body #title small{display:block;margin-top:3px;font:500 var(--fs-s)/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--blue)}
+#bx-actions{position:fixed;z-index:var(--z-bar);top:var(--sp-3);right:var(--sp-4);max-width:calc(100vw - 340px);display:flex;gap:var(--sp-2);align-items:center}
+#bx-actions .pk-bar,#bx-actions .leaflet-control{position:static!important;transform:none!important;display:flex;gap:var(--sp-2);margin:0!important;float:none!important;border:0!important;background:none!important;box-shadow:none!important}
+/* every button in the top bar + chips + chat dock is the same pill */
+html body #bx-actions button,html body #dc-bar button,html body #bx-chat,html body .mm-tog,html body #st-go{display:inline-flex;align-items:center;gap:6px;
+  font:600 var(--fs-m)/1 var(--font);padding:10px 15px;border-radius:var(--r-pill);border:1px solid var(--line-2);background:var(--surface);color:var(--text-2);
+  cursor:pointer;white-space:nowrap;box-shadow:var(--shadow-s);backdrop-filter:blur(10px);width:auto;margin:0;transition:.15s}
+html body #bx-actions button:hover,html body #dc-bar button:hover,html body .mm-tog:hover{border-color:var(--blue);color:#fff}
+html body #dc-bar button.on,html body #bx-chat.on,html body #st-go{background:var(--pink);border-color:var(--pink);color:#fff}
+html body .pk-bar button.on{background:var(--blue-d);border-color:var(--blue-d);color:#fff}
+html body #st-go{position:static;top:auto;left:auto}
+
+/* ---- chips: bottom, one row ---- */
+html body #dc-bar{position:fixed;left:64px;right:var(--sp-4);bottom:var(--sp-4);top:auto;height:auto;z-index:var(--z-bar);display:flex;flex-wrap:wrap;justify-content:center;gap:var(--sp-2);padding:0;pointer-events:none;overflow:visible}
+html body #dc-bar button{pointer-events:auto;font-size:13px;padding:9px 13px}
+html body #hint{bottom:calc(var(--bottom-h) + 36px);background:var(--pink);font:700 var(--fs-m) var(--font);box-shadow:var(--shadow-s)}
+
+/* ---- result rail: block card, park verdict, battle/leaderboard share one frame ---- */
+#bx-rail{position:fixed;z-index:var(--z-rail);top:calc(var(--top-h) + var(--sp-3));right:var(--sp-4);bottom:calc(var(--bottom-h) + var(--sp-4));width:380px;display:flex;flex-direction:column;gap:var(--sp-3);overflow-y:auto;pointer-events:none;scrollbar-width:none}
+#bx-rail::-webkit-scrollbar{display:none}
+#bx-rail>*{pointer-events:auto;flex:none}
+html body #bx-rail #panel,html body #bx-rail #dc-pan,html body #bx-rail .pk-card{position:relative;inset:auto;left:auto;right:auto;top:auto;bottom:auto;transform:none;width:auto;height:auto;max-height:none;
+  background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:var(--r-l);box-shadow:var(--shadow);backdrop-filter:blur(14px);padding:var(--sp-4) 18px 18px;font:var(--fs-m)/1.45 var(--font);overflow:visible}
+html body #bx-rail #panel:not(.open){display:none}
+html body #bx-rail .pk-card{border-top:5px solid var(--c)}
+html body #bx-rail #panel #x,html body #bx-rail #dc-pan .x,html body #bx-rail .pk-card .x{position:absolute;top:8px;right:10px;padding:6px 8px;background:none;border:0;color:var(--muted);font-size:22px;cursor:pointer;width:auto}
+html body #bx-rail #panel h2{font-size:var(--fs-xl);letter-spacing:-.02em;padding-right:28px}
+html body #bx-rail #dc-pan h3{font-size:var(--fs-l);margin:0 0 var(--sp-3);padding-right:28px}
+html body #bx-rail #dc-pan .vs{grid-template-columns:1fr}
+html body #panel .fact,html body #dc-pan .col{background:var(--surface-2);border-radius:var(--r-m)}
+html body #panel .fact{border-left:4px solid var(--pink)}html body #panel .fact .r{color:var(--pink-2)}
+html body #dc-pan .col{border-top:3px solid var(--pink)}html body #dc-pan .col.w{border-color:var(--green)}
+html body #dc-pan .big,html body #dc-pan .row b{color:var(--pink-2)}
+html body #share,html body #panel #share{background:var(--pink);border-radius:var(--r-m);color:#fff;font:700 15px var(--font)}
+html body .nav button{background:var(--surface-2)}html body .nav .dot.on{background:var(--pink)}
+html body .dc-off{border-radius:var(--r-s)}
+html body .pk-toast{z-index:var(--z-toast);top:calc(var(--top-h) + var(--sp-3));background:var(--surface);border:1px solid var(--line);font-family:var(--font)}
+
+/* ---- one legend: the cleaning widget (top-left) ---- */
+html body .sw-bar{position:fixed;left:var(--sp-4);top:calc(var(--top-h) + var(--sp-3));z-index:var(--z-ui);width:240px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);box-shadow:var(--shadow-s);backdrop-filter:blur(10px);font:600 var(--fs-s) var(--font);padding:10px 12px;margin:0}
+html body .sw-bar button{background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-s);font-family:var(--font)}
+html body .sw-bar .lg{color:var(--text-2);font-size:11px}
+html body .leaflet-bottom.leaflet-left{margin-bottom:var(--bottom-h)}
+body:has(#st-bar[style*="flex"]) .sw-bar,body:has(#ai.on) .sw-bar,body:has(#cm.cm-open) .sw-bar{display:none}
+html body .mm-pop,html body .sw-pop{font-family:var(--font)}
+
+/* ---- chat dock: Ask AI + City memory share one launcher, one frame, tabs ---- */
+html body #ai-open,html body #cm .cm-pill{display:none!important}
+html body #ai,html body #cm .cm-panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-l);box-shadow:var(--shadow);backdrop-filter:blur(14px);color:var(--text);font-family:var(--font)}
+html body #ai{position:fixed;left:var(--sp-4);top:calc(var(--top-h) + var(--sp-3));bottom:calc(var(--bottom-h) + var(--sp-4));width:400px;z-index:var(--z-chat)}
+html body #cm{position:fixed;left:var(--sp-4);right:auto;top:calc(var(--top-h) + var(--sp-3));bottom:calc(var(--bottom-h) + var(--sp-4));width:400px;z-index:var(--z-chat);font-family:var(--font)}
+html body #cm:not(.cm-open){display:none}
+html body #cm .cm-panel{width:100%;height:100%}
+html body #ai header,html body #cm .cm-head{border-bottom:1px solid var(--line);padding:12px 16px;font-weight:700;font-size:var(--fs-m)}
+html body #ai header small{color:var(--blue)}
+.bx-tabs{display:flex;gap:var(--sp-2);padding:10px 16px 0;flex:none}
+.bx-tabs button,html body #cm .bx-tabs button{flex:1;width:auto;margin:0;padding:8px 10px;border-radius:var(--r-pill);border:1px solid var(--line-2);background:none;color:var(--text-2);font:600 13px var(--font);cursor:pointer}
+.bx-tabs button.on,html body #cm .bx-tabs button.on{background:var(--blue-d);border-color:var(--blue-d);color:#fff}
+html body .ai-u,html body #cm .cm-u{background:var(--blue-d);color:#fff}
+html body .ai-a,html body #cm .cm-a{background:#ffffff12}
+html body .ai-card{background:var(--surface-2);border:1px solid var(--line)}html body .ai-card i{color:var(--pink-2)}
+html body #ai input,html body #cm textarea,html body #cm input[type=text]{background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-m);color:#fff;font-family:var(--font)}
+html body #ai form button,html body #cm .cm-btn{background:var(--blue-d);color:#fff;border-radius:var(--r-m);font-weight:700}
+html body #ai-chips button,html body #cm .cm-chip{background:#ffffff0d;border:1px solid var(--line-2);color:var(--text-2);border-radius:var(--r-pill);font-family:var(--font)}
+/* loading everywhere = a small pulsing particle blob + a phrase */
+html body .ai-dots{width:18px;height:18px;position:relative;vertical-align:middle;margin-right:6px;display:inline-block;gap:0}
+html body .ai-dots i{position:absolute;inset:0;width:auto;height:auto;border-radius:50%;background:radial-gradient(circle,#b8d2ff 0,#7aa5ff 35%,#4f7dff00 70%);animation:bxblob 1.2s ease-in-out infinite}
+html body .ai-dots i:nth-child(2){animation-delay:.2s}html body .ai-dots i:nth-child(3){animation-delay:.4s}
+@keyframes bxblob{0%,100%{transform:scale(.5);opacity:.4}50%{transform:scale(1.15);opacity:1}}
+html body #prog{font:600 var(--fs-m) var(--font);background:var(--surface);border:1px solid var(--line);color:var(--text-2)}
+
+/* ---- story mode ---- */
+html body #st-cap{background:#05070fe6;border:1px solid var(--line);border-radius:var(--r-l);font-family:var(--font);bottom:calc(var(--bottom-h) + var(--sp-5))}
+html body #st-bar{position:fixed;top:calc(var(--top-h) + var(--sp-3));left:var(--sp-4);background:var(--surface);border:1px solid var(--line);font-family:var(--font)}
+html body #st-bar button.on{background:var(--pink)}
+
+/* ---- phone: bottom sheet, tools row under the brand bar ---- */
+@media(max-width:700px){
+  :root{--top-h:46px;--bottom-h:50px}
+  html body #title{font-size:17px}html body #title small{font-size:10px;letter-spacing:.1em}
+  #bx-actions{top:var(--top-h);left:0;right:0;padding:var(--sp-2) var(--sp-3);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  #bx-actions::-webkit-scrollbar{display:none}
+  #bx-actions .pk-bar,#bx-actions .leaflet-control{flex:none}
+  html body #bx-actions button,html body #bx-chat,html body .mm-tog,html body #st-go{padding:8px 12px;font-size:13px}
+  html body #dc-bar{left:0;right:0;bottom:var(--sp-2);justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;padding:0 var(--sp-3);pointer-events:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  html body #dc-bar::-webkit-scrollbar{display:none}
+  html body #dc-bar button{flex:none;padding:9px 12px}
+  #bx-rail{left:0;right:0;width:auto;top:auto;bottom:calc(var(--bottom-h) + var(--sp-2));max-height:52vh;padding:0 var(--sp-2)}
+  html body #bx-rail #panel,html body #bx-rail #dc-pan,html body #bx-rail .pk-card{padding:14px 14px 16px}
+  html body .sw-bar{top:calc(var(--top-h) + 52px);left:var(--sp-3);width:208px;padding:8px 10px}
+  html body #ai,html body #cm{left:0;right:0;top:auto;bottom:0;width:auto;height:78vh}
+  html body #ai,html body #cm .cm-panel{border-radius:var(--r-l) var(--r-l) 0 0}
+  html body #ai-map{height:150px}
+  html body #hint{bottom:calc(var(--bottom-h) + 20px)}
+  html body #st-bar{top:calc(var(--top-h) + 52px)}
+  html body #st-cap{bottom:calc(var(--bottom-h) + 70px);font-size:20px}
+  body:has(#panel.open) .sw-bar,body:has(.pk-card[style*="block"]) .sw-bar,body:has(#dc-pan[style*="block"]) .sw-bar{display:none}
+}
