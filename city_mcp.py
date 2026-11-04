@@ -121,6 +121,15 @@ def ask_city(question: str) -> str:
 
 
 @server.tool()
+def ask_area(question: str) -> str:
+    """Ask about a San Francisco neighborhood or block in plain words ("How's Inner Sunset?", "loudest block in SF?"):
+    Mistral answers from numbers computed on DataSF and names each dataset."""
+    import area
+    out = area.chat([{"role": "user", "content": question}])
+    return out.get("reply") or out.get("error", "No answer.")
+
+
+@server.tool()
 def remember(note: str, share: bool = True) -> str:
     """Add what the user told you about San Francisco (an event, a place, a community, a tip, a change to something
     already known) to the shared city memory. Call only after the user agreed to share it; share=False keeps it
