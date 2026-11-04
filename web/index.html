@@ -140,4 +140,5 @@ async function share(){
 $('#form').onsubmit=e=>{e.preventDefault();go($('#street').value.trim(),$('#cross').value.trim())};
 document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{$('#street').value=b.dataset.s;$('#cross').value=b.dataset.c;go(b.dataset.s,b.dataset.c)});
 $('#back').onclick=()=>{$('#deck').style.display='none';$('#form').style.display='flex';blob.mode('idle')};
-</script><script src="/chat.js"></script></body></html>
+</script>
+<script src="/memory-layer.js"></script><script src="/chat.js"></script></body></html>

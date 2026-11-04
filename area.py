@@ -8,9 +8,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 
+import requests
+
 import block
 import citymem
-from block import VIOLENT, city, counts, soql
+from block import BY_CATEGORY, INDEX, VIOLENT, city, es, per_dataset
 
 SENSITIVE = re.compile(r"missing|found person|mental|welfare|death|overdose|drug|narcotic|warrant|prostitut", re.I)
 
@@ -60,6 +62,13 @@ TOOLS = [
 _nhoods = {}
 
 
+def soql(dataset, **params):
+    r = requests.get(f"https://data.sf.gov/resource/{dataset}.json", params={f"${k}": v for k, v in params.items()},
+                     timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+
 def nhoods():
     # Center of each SF Analysis Neighborhood: the mean of its outline's points is close enough for a 600 m circle.
     if not _nhoods:
@@ -83,28 +92,22 @@ def neighborhood_facts(name):
     if not n:
         return {"error": "not_found", "known": sorted(nhoods())}
     lat, lon = c
-    near = f"within_circle(point, {lat}, {lon}, {NHOOD_RADIUS_M})"
-    since = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%dT00:00:00")
-    facts, totals = [], {}
-    for label, dataset, key, base in [("311", "vw6y-z8j6", "service_subtype", "311"),
-                                      ("SFPD incidents", "wg3w-h783", "incident_description", None)]:
-        if base is None:  # the police baseline is cached by block.py over two years; ask the same window here
-            since_p = (datetime.now() - timedelta(days=730)).strftime("%Y-%m-%dT00:00:00")
-            where, baseline = f"report_datetime > '{since_p}'", city("police", dataset, key, f"report_datetime > '{since_p}'")
-            period = "2 yr"
-        else:
-            where, baseline, period = f"requested_datetime > '{since}'", city(base, dataset, key, f"requested_datetime > '{since}'"), "1 yr"
-        here, total = counts(soql(dataset, select=f"{key}, count(*) AS n", group=key, limit=5000,
-                                  where=f"{near} AND {where}"), key)
-        totals[f"{label} reports within {NHOOD_RADIUS_M} m ({period})"] = total
-        everywhere, city_total = baseline
-        for cat, k in here.items():
+    # Same ratio as block.py, over the same Elastic index, in a wider circle.
+    here = per_dataset(es.search(index=INDEX, size=0, aggs=BY_CATEGORY, query={
+        "geo_distance": {"distance": f"{NHOOD_RADIUS_M}m", "location": {"lat": lat, "lon": lon}}}))
+    base, facts, totals = city(), [], {}
+    for ds, label in [("311", "311 (vw6y-z8j6)"), ("police", "SFPD incidents (wg3w-h783)"), ("trees", "Street trees (tkzw-k3nq)")]:
+        cats, total = here.get(ds, ({}, 0))
+        everywhere, city_total = base.get(ds, ({}, 0))
+        totals[f"{label} within {NHOOD_RADIUS_M} m"] = total
+        for cat, k in cats.items():
             if k >= 15 and everywhere.get(cat) and not VIOLENT.search(cat) and not SENSITIVE.search(cat):
                 ratio = round((k / total) / (everywhere[cat] / city_total), 1)
                 if ratio >= NHOOD_MIN_RATIO:
-                    title = block.TITLES.get(cat.replace("_", " ").capitalize(), cat.replace("_", " ").capitalize())
-                    facts.append(dict(title=title, ratio=ratio, count=k, period=period,
-                                      dataset=f"{label} ({dataset})"))
+                    name = cat.split("::")[-1].strip() if ds == "trees" else cat.replace("_", " ").strip().capitalize()
+                    title = f"{name} trees" if ds == "trees" else block.TITLES.get(name, name)
+                    facts.append(dict(title=title, ratio=ratio, count=k, period="all" if ds == "trees" else "1 yr",
+                                      dataset=label))
     facts = sorted(facts, key=lambda f: -f["ratio"])[:5]
     return dict(neighborhood=n, lat=round(lat, 5), lon=round(lon, 5), radius_m=NHOOD_RADIUS_M, totals=totals,
                 facts=facts, note="ratio = times the city's share of that report type")
@@ -185,15 +188,15 @@ def chat(history):
     places, sources, card, hood = [], [], None, None
     for _ in range(5):
         r = None
-        for attempt in range(3):
+        for attempt in range(4):
             try:
                 r = mistral.chat.complete(model=MODEL, reasoning_effort="low", messages=msgs, tools=TOOLS,
                                           tool_choice="auto")
                 break
             except Exception as e:
-                if getattr(e, "status_code", None) != 429 or attempt == 2:
+                if getattr(e, "status_code", None) != 429 or attempt == 3:
                     return {"error": "The AI guide is having trouble answering right now. Please try again in a moment."}
-                time.sleep(1.5 * (attempt + 1))
+                time.sleep(2 * (attempt + 1))
         m = r.choices[0].message
         if not m.tool_calls:
             return dict(reply=text_of(m.content).strip(), places=places, sources=sorted(set(sources)), block=card,

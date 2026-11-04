@@ -75,6 +75,7 @@ The server acts as one user, set by the `CITY_USER` environment variable (defaul
 - `owner`, `source_quote`
 - `status`: reported or superseded
 - `supersedes`, `observed_at`
+- `first_owner`, `first_observed_at`: the original reporter, kept when updates merge into the entry
 
 **Retrieval.**
 - Hybrid search fuses two queries with the RRF retriever: keyword search (BM25 over title, boosted, and body) and semantic search over `body_semantic`. If RRF fails, it uses semantic search alone.
@@ -86,9 +87,9 @@ The server acts as one user, set by the `CITY_USER` environment variable (defaul
 1. For each new fact, Elastic finds the 3 nearest entries.
 2. Only entries of the same kind and the same sharing class stay candidates. A private note can only replace the same owner's private notes, so it can never hide a shared entry.
 3. `mistral-large-4` picks the candidate that is the very same thing, or none when unsure.
-4. On a match, Mistral rewrites the old entry with the new report applied. The new entry points to the old one with `supersedes`, and the old one is marked superseded. Nothing is deleted.
+4. On a match, Mistral merges the old entry and the new report field by field (title, body, when, neighborhood, url), keeping every older detail the report does not change. The merged entry keeps the first reporter in `first_owner` and `first_observed_at`, points to the old one with `supersedes`, and the old one is marked superseded. Nothing is deleted.
 
-**Answering.** `mistral-large-4` writes the brief from the retrieved entries only. For each entry it cites, it gives the access, who reported it and how long ago. It flags entries older than 60 days and says when an entry replaced an older report.
+**Answering.** `mistral-large-4` writes the brief from the retrieved entries only. For each entry it cites, it gives the access as recorded (never inferred from the body), who first reported it, who updated it and how long ago. It flags entries older than 60 days and says when an entry replaced an older report.
 
 ## Where Elastic and Mistral are used
 

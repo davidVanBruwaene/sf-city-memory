@@ -20,9 +20,9 @@ Claude Desktop chat: `connect_claude.py` adds the server while Claude is closed,
 3. `I'm in SF until Friday for AI and startup stuff. What's worth going to this week?`
    `ask_city` returns Mistral's brief, with citations, covering the hack night, Elastic{ON}, the Design Chat, Omarchy, the GTM Series and the Founders coffee.
 4. `Add this to the city memory: tonight's hack night is officially "Make SF Better: A Hack Night with Mistral AI". Pitches are 2 minutes at 7:30, finalists at 8, prizes at 8:30, judged on novelty, use of Elastic and use of Mistral.`
-   Approve `remember`. It should say it replaced the earlier report "Elastic x Mistral SF Hack Night".
+   Approve `remember`. It should say it replaced the earlier hack night report.
 5. `What time are prizes tonight, and how are we judged?`
-   The answer comes from the merged entry.
+   The answer comes from the merged entry: it keeps the 5:00 PM start and credits the organisers as first reporter and you as the updater.
 
 ## Two minutes
 

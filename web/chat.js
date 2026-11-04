@@ -1,5 +1,5 @@
 /* AI chat over the map: POST /api/chat with the conversation, fly the map to the places in the answer.
-   Uses window.cityMap (a Leaflet map from the map screen) when there is one, otherwise its own map in the panel. */
+   Uses window.map (the map screen's Leaflet map) when there is one, otherwise its own map in the panel. */
 (()=>{
 const css=`
 #ai-open{position:fixed;right:20px;bottom:20px;z-index:20;font:600 15px -apple-system,sans-serif;padding:13px 18px;border-radius:99px;border:1px solid #8fb4ff55;background:#0b1a3aee;color:#dce8ff;cursor:pointer;box-shadow:0 8px 30px #000a,0 0 30px #4f7dff44;backdrop-filter:blur(10px)}
@@ -36,10 +36,12 @@ const msgs=[];let map=null,layer=null,busy=false;
 function loadLeaflet(){return window.L?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
 async function ensureMap(){
   if(map)return map;
-  if(window.cityMap&&window.cityMap.flyTo){map=window.cityMap;$('#ai-map').style.display='none';return map}
+  const shared=window.map||window.cityMap;
+  if(shared&&shared.flyTo){map=shared;$('#ai-map').style.display='none';return map}
   await loadLeaflet();
   map=L.map('ai-map',{zoomControl:false,attributionControl:true}).setView([37.7599,-122.4348],12);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,className:'ai-tiles'}).addTo(map);
+  window.dispatchEvent(new CustomEvent('map-ready',{detail:map}));  /* memory pins show on this map too */
   return map;
 }
 function add(cls,html){const d=document.createElement('div');d.className='ai-m '+cls;d.innerHTML=html;$('#ai-log').appendChild(d);$('#ai-log').scrollTop=1e9;return d}
