@@ -48,8 +48,11 @@
     if (it.status === 'safe') return;
     try {
       const q = new URLSearchParams({street: it.street, weekday: it.weekday, lat: it.lat, lon: it.lon});
-      const o = (await (await fetch('/api/sweep/officer?' + q)).json()).officer;
-      if (!o) return;  // no ticket data or pattern too thin: hide the line
+      const j = await (await fetch('/api/sweep/officer?' + q)).json(), o = j.officer;
+      if (!o) {
+        if (j.note) pop.setContent(base + `<div class="off">${esc(j.note)}</div></div>`);
+        return;
+      }
       pop.setContent(base + `<div class="off">🚓 Officer usually by ${esc(o.officer_usually_by)} (±${o.spread_min} min, ${o.weeks_seen} of ${o.weeks_total} weeks)</div></div>`);
       L.marker([it.lat, it.lon], {icon: L.divIcon({className: '', iconSize: [28, 28], html: '<div class="sw-cop">🚓</div>'}), interactive: false}).addTo(cop);
     } catch (e) { /* officer line stays hidden */ }

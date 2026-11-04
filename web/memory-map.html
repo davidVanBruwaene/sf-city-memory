@@ -83,14 +83,18 @@ document.addEventListener('keydown',e=>{if(!panel.classList.contains('open')||/I
 function closePanel(){panel.classList.remove('open');history.replaceState(null,'',location.pathname)}
 async function show(street,cross,lat,lon){
   const me=++seq;hint.style.opacity=0;idx=0;
-  panel.classList.add('open');out.innerHTML='<h2 class="pending">Looking up…</h2><div class="addr">'+esc(street+' & '+cross)+'</div>';
-  history.replaceState(null,'','?b='+encodeURIComponent(street+'|'+cross));
+  const byPt=street==null;
+  if(!byPt){panel.classList.add('open');out.innerHTML='<h2 class="pending">Looking up…</h2><div class="addr">'+esc(street+' & '+cross)+'</div>';
+  history.replaceState(null,'','?b='+encodeURIComponent(street+'|'+cross))}
   if(sel)sel.remove();sel=L.circleMarker([lat,lon],{radius:9,color:'#fff',fillColor:'#7aa5ff',fillOpacity:.9}).addTo(map);
   startBlob(lat,lon);
-  const q='street='+encodeURIComponent(street)+'&cross='+encodeURIComponent(cross);
+  let q=byPt?'lat='+lat+'&lon='+lon:'street='+encodeURIComponent(street)+'&cross='+encodeURIComponent(cross);
   try{
     const r=await fetch('/api/block?fast=1&'+q);
+    if(byPt&&r.status==404){if(me!=seq)return;stopBlob();sel.remove();sel=null;toast('No street block here');return}
     const b=await r.json();if(me!=seq)return;stopBlob();if(!r.ok||b.error)throw 0;
+    if(byPt){street=b.street;cross=b.cross;q='street='+encodeURIComponent(street)+'&cross='+encodeURIComponent(cross);
+      panel.classList.add('open');history.replaceState(null,'','?b='+encodeURIComponent(street+'|'+cross))}
     cur=Object.assign(b,{street,cross});render(cur,!!b.pending);
     if(b.pending){const n=await fetch('/api/nickname?'+q).then(r=>r.json()).catch(()=>null);
       if(me!=seq)return;
@@ -99,7 +103,9 @@ async function show(street,cross,lat,lon){
   }catch(e){if(me!=seq)return;stopBlob();out.innerHTML='<h2>No data for this block</h2><div class="addr">Try another corner.</div>'}
 }
 const near=(lat,lon)=>XS.reduce((a,x)=>{const d=(x[2]-lat)**2+((x[3]-lon)*.8)**2;return d<a[0]?[d,x]:a},[1e9])[1];
-map.on('click',e=>{const x=near(e.latlng.lat,e.latlng.lng);show(x[0],x[1],x[2],x[3])});
+let tt;function toast(m){let t=document.getElementById('toast');if(!t){t=document.createElement('div');t.id='toast';t.style.cssText='position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:2000;background:#000c;color:#fff;padding:8px 14px;border-radius:18px;font:14px system-ui;pointer-events:none';document.body.appendChild(t)}
+  t.textContent=m;t.style.display='block';clearTimeout(tt);tt=setTimeout(()=>t.style.display='none',2500)}
+map.on('click',e=>show(null,null,e.latlng.lat,e.latlng.lng));
 for(const [st,cr,lat,lon] of WOW)
   L.marker([lat,lon],{icon:L.divIcon({className:'',iconSize:[26,26],html:'<div class="wow"><i></i><i></i><b></b></div>'}),title:st+' & '+cr})
    .on('click',()=>{map.panTo([lat,lon]);show(st,cr,lat,lon)}).addTo(map);
