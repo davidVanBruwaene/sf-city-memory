@@ -227,5 +227,6 @@
   }
 
   window.cityMemoryChat = { open: open, send: send };
+  window.memoryChat = { ask: send, prefill: function (t) { open(); setTimeout(function () { if (ta) { ta.value = t || ''; ta.focus(); } }, 0); } };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build); else build();
 })();
