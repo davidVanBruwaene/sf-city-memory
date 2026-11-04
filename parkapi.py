@@ -3,6 +3,7 @@
 The sentence is a template (no Mistral): fast, and it says exactly what the schedule says.
 """
 import os
+import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -44,7 +45,7 @@ def parse_t(t):
     t = (t or "").strip()
     if not t:
         return now
-    if "T" in t:
+    if re.match(r"\d{4}-\d{2}-\d{2}T", t):
         return datetime.fromisoformat(t).replace(tzinfo=SF)
     day, _, hm = t.rpartition(" ")
     h, m = (int(x) for x in hm.split(":"))
