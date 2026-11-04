@@ -74,7 +74,7 @@ def api_block():
     except Exception as e:  # keep the demo alive on any backend failure
         return jsonify(error="not_found", detail=str(e), examples=EXAMPLES), 502
     if not b or b.get("error"):
-        return jsonify(b or {"error": "not_found"}) | {"examples": EXAMPLES}, 404
+        return jsonify((b or {"error": "not_found"}) | {"examples": EXAMPLES}), 404
     top = b["facts"][0] if b.get("facts") else {}
     with room_lock:
         room[b["address"]] = dict(lat=b["lat"], lon=b["lon"], nickname=b["nickname"], weirdness=b["weirdness"],
