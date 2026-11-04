@@ -279,6 +279,11 @@ def story_js():
     return send_from_directory(os.path.join(HERE, "web"), "story.js")
 
 
+@app.get("/demo-chips.js")
+def demo_chips_js():
+    return send_from_directory(os.path.join(HERE, "web"), "demo-chips.js")
+
+
 @app.get("/memory-layer.js")
 def memory_layer_js():
     return send_from_directory(os.path.join(HERE, "web"), "memory-layer.js")
