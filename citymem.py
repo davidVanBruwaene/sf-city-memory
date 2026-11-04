@@ -24,10 +24,11 @@ EXTRACT = (
     "approval-required. Never invent facts; return an empty list when there are none."
 )
 ANSWER = (
-    "Answer using only the numbered memory entries and cite them like [2]. For each recommendation say whether access "
-    "is free, paid or approval-required, who reported it and how long ago (today is {today}). Flag only entries older "
-    "than 60 days as possibly stale, and say when an entry replaced an older report. Keep it short and conversational. "
-    "If nothing is relevant, say so."
+    "Answer using only the numbered memory entries and cite them like [2]. For each recommendation say who first "
+    "reported it, who updated it if anyone, and how long ago (today is {today}). Give access only as the access= field "
+    "states it (approval means approval-required, unknown means not recorded); registration details in the body are "
+    "not an access level. Flag only entries older than 60 days as possibly stale, and say when an entry replaced an "
+    "older report. Keep it short and conversational. If nothing is relevant, say so."
 )
 MAPPINGS = {"properties": {
     "kind": {"type": "keyword"}, "title": {"type": "text"}, "body": {"type": "text"},
@@ -35,8 +36,14 @@ MAPPINGS = {"properties": {
     "access": {"type": "keyword"}, "visibility": {"type": "keyword"}, "when": {"type": "keyword"},
     "neighborhood": {"type": "keyword"}, "url": {"type": "keyword"}, "owner": {"type": "keyword"},
     "source_quote": {"type": "text"}, "status": {"type": "keyword"}, "supersedes": {"type": "keyword"},
-    "observed_at": {"type": "date"}, "location": {"type": "geo_point"},
+    "observed_at": {"type": "date"}, "first_owner": {"type": "keyword"}, "first_observed_at": {"type": "date"},
+    "location": {"type": "geo_point"},
 }}
+MERGE = (
+    "Merge an older entry and a newer report about the same thing into one entry. Keep every detail of the older entry "
+    "unless the newer report changes or contradicts it, and add everything new from the newer report. In 'when', keep "
+    "the full date and time range and add any new times. Never invent anything."
+)
 
 
 class Fact(BaseModel):
@@ -57,6 +64,14 @@ class Turn(BaseModel):
 
 class Match(BaseModel):
     same_as: int | None
+
+
+class Merged(BaseModel):
+    title: str
+    body: str
+    when: str | None
+    neighborhood: str | None
+    url: str | None
 
 
 def setup():
@@ -131,21 +146,28 @@ def find_same(user, fact):
     return candidates[m.same_as - 1] if m.same_as and 1 <= m.same_as <= len(candidates) else None
 
 
+def entry_text(e):
+    return "\n".join(f"{k}: {e.get(k)}" for k in ("title", "body", "when", "neighborhood", "url"))
+
+
+def merged_fields(prev, fact):
+    m = chat("parse", MODEL, response_format=Merged, messages=[
+        {"role": "system", "content": MERGE},
+        {"role": "user", "content": f"Older entry:\n{entry_text(prev)}\n\nNewer report:\n{entry_text(fact.model_dump())}"},
+    ]).choices[0].message.parsed.model_dump()
+    out = {k: v or getattr(fact, k) or prev.get(k) for k, v in m.items()}
+    # Credit stays with whoever first reported the thing; owner and observed_at record this update.
+    return out | {"body_semantic": out["body"], "access": prev["access"] if fact.access == "unknown" else fact.access,
+                  "first_owner": prev.get("first_owner") or prev["owner"],
+                  "first_observed_at": prev.get("first_observed_at") or prev["observed_at"]}
+
+
 def remember(user, fact, quote, match=True):
     doc = fact.model_dump() | {"body_semantic": fact.body, "owner": user, "source_quote": quote,
                                "status": "reported", "observed_at": datetime.now().astimezone().isoformat()}
     old = find_same(user, fact) if match else None
     if old:
-        prev = old["_source"]
-        r = chat("complete", MODEL, messages=[
-            {"role": "system", "content": "Rewrite the older entry with the newer report applied. Keep every detail the "
-                                          "newer report does not change. Reply with the rewritten entry only."},
-            {"role": "user", "content": f"Older: {prev['body']}\nNewer: {fact.body}"},
-        ])
-        doc["body"] = doc["body_semantic"] = text_of(r.choices[0].message.content).strip() or fact.body
-        doc["access"] = prev["access"] if doc["access"] == "unknown" else doc["access"]
-        doc |= {k: doc[k] or prev.get(k) for k in ("when", "neighborhood", "url")}
-        doc["supersedes"] = old["_id"]
+        doc |= merged_fields(old["_source"], fact) | {"supersedes": old["_id"]}
     es.index(index=INDEX, document=doc, refresh=True)
     if old:
         es.update(index=INDEX, id=old["_id"], doc={"status": "superseded"}, refresh=True)
@@ -160,10 +182,17 @@ def consent(fact):
     return a in ("y", "p")
 
 
+def credit(s):
+    if s.get("first_owner"):
+        return (f"first reported by {s['first_owner']} on {s['first_observed_at'][:10]}, "
+                f"updated by {s['owner']} on {s['observed_at'][:10]}")
+    return f"reported by {s['owner']} on {s['observed_at'][:10]}"
+
+
 def format_entries(hits):
     return "\n".join(
-        f"[{i}] {s['kind']} | {s['title']} | {s['body']} | access={s['access']} | when={s.get('when')} "
-        f"| reported by {s['owner']} on {s['observed_at'][:10]}" + (" | replaces an older report" if s.get("supersedes") else "")
+        f"[{i}] {s['kind']} | {s['title']} | {s['body']} | access={s['access']} | when={s.get('when')} | {credit(s)}"
+        + (" | replaces an older report" if s.get("supersedes") else "")
         for i, s in enumerate((h["_source"] for h in hits), 1))
 
 
