@@ -6,7 +6,9 @@
   const M = () => window.map;
   const has = n => typeof window[n] === 'function';
   const css = document.createElement('style');
-  css.textContent = `#dc-bar{position:fixed;z-index:1090;left:0;right:262px;bottom:78px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:0 16px;pointer-events:none}
+  css.textContent = `#presets{display:none!important}
+@media(max-width:700px){#dc-bar{right:0;bottom:auto;top:156px;height:48px;align-items:flex-start;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;pointer-events:auto;padding:0 12px 4px;scrollbar-width:none}.pk-bar{top:104px!important;left:12px!important;transform:none!important}}
+#dc-bar{position:fixed;z-index:1090;left:0;right:262px;bottom:78px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:0 16px;pointer-events:none}
 #dc-bar button{pointer-events:auto;font:600 13px -apple-system,sans-serif;padding:8px 13px;border-radius:99px;background:#0b1a3aee;border:1px solid #8fb4ff55;color:#dce8ff;cursor:pointer;white-space:nowrap;box-shadow:0 4px 18px #000a;backdrop-filter:blur(8px)}
 #dc-bar button:hover,#dc-bar button.on{background:#ff4d6d;border-color:#ff4d6d;color:#fff}
 #dc-pan{position:fixed;z-index:1160;left:50%;top:70px;transform:translateX(-50%);width:min(760px,94vw);max-height:60vh;overflow:auto;background:#12162af7;color:#fff;border-radius:16px;box-shadow:0 10px 50px #000d;padding:16px 18px;font:14px/1.4 -apple-system,sans-serif;display:none}
@@ -47,10 +49,10 @@
     {t: '🅿️ Can I park here tonight?', ok: () => has('show'), run: async () => {
       clean(); fly(37.7587, -122.4240, 16);
       const sw = $('sw-tom'); sw && sw.click();
-      const p = fetch('/api/park?street=' + encodeURIComponent('Guerrero St') + '&cross=' + encodeURIComponent('20th St')).then(r => r.ok ? r.json() : null).catch(() => null);
+      const p = fetch('/api/park?lat=37.7587&lon=-122.4237&t=' + encodeURIComponent('Wed 07:00')).then(r => r.ok ? r.json() : null).catch(() => null);
       show('Guerrero St', '20th St', 37.7587, -122.4240);
       const [b, park] = await Promise.all([api('Guerrero St', '20th St').catch(() => null), p]);
-      const v = park && (park.verdict || park.answer || park.message);
+      const v = park && (park.headline);
       const s = b && b.sweeping;
       const line = v ? `<div class="dc-off">🅿️ ${esc(v)}</div>`
         : s ? `<div class="dc-off">🧹 Street cleaning: ${esc(s.next || s.schedule || s.summary || 'see the red/orange dots')}${s.officer_usually_by ? ' · 🚓 officer by ' + esc(s.officer_usually_by) : ''}</div>`
