@@ -35,7 +35,7 @@ MAPPINGS = {"properties": {
     "access": {"type": "keyword"}, "visibility": {"type": "keyword"}, "when": {"type": "keyword"},
     "neighborhood": {"type": "keyword"}, "url": {"type": "keyword"}, "owner": {"type": "keyword"},
     "source_quote": {"type": "text"}, "status": {"type": "keyword"}, "supersedes": {"type": "keyword"},
-    "observed_at": {"type": "date"},
+    "observed_at": {"type": "date"}, "location": {"type": "geo_point"},
 }}
 
 
@@ -72,6 +72,7 @@ def setup():
     else:
         es.indices.create(index=INDEX, mappings=MAPPINGS)
         print(f"index {INDEX}: created")
+    es.indices.put_mapping(index=INDEX, properties={"location": {"type": "geo_point"}})
 
 
 def visible_to(user):
