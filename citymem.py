@@ -1,5 +1,6 @@
 """City memory: each chat turn can both answer from and add to a shared, permission-aware store of local knowledge."""
 import sys
+import time
 from datetime import datetime
 from typing import Literal
 
@@ -11,7 +12,7 @@ from sfhack import MISTRAL_API_KEY, es, mistral
 INDEX = "city-memory"
 EMBED_ID = "mistral-embeddings"
 MODEL = "mistral-large-4"
-FAST = "mistral-small-latest"
+FAST = "ministral-8b-latest"
 USAGE = "usage: python citymem.py setup | chat <user> | say <user> <text|@file> [--yes] | show | stats | reset"
 
 EXTRACT = (
@@ -20,12 +21,14 @@ EXTRACT = (
     "events, places to work, communities, people open to meeting, tips. Each fact's body must make sense without the "
     "conversation: keep who, what, where, when, how to get in, and why it is worth it or who recommended it. "
     "visibility: 'personal' for the user's own plans and private contacts, 'community' for insider knowledge, "
-    "'public' for things already publicly listed. Never invent facts; return an empty list when there are none."
+    "'public' for things already publicly listed. access is 'unknown' unless the message says free, paid or "
+    "approval-required. Never invent facts; return an empty list when there are none."
 )
 ANSWER = (
     "Answer using only the numbered memory entries and cite them like [2]. For each recommendation say whether access "
-    "is free, paid or approval-required, who reported it and how long ago (today is {today}). Call anything older "
-    "than 60 days possibly stale, and say when an entry replaced an older report. If nothing is relevant, say so."
+    "is free, paid or approval-required, who reported it and how long ago (today is {today}). Flag only entries older "
+    "than 60 days as possibly stale, and say when an entry replaced an older report. Keep it short and conversational. "
+    "If nothing is relevant, say so."
 )
 MAPPINGS = {"properties": {
     "kind": {"type": "keyword"}, "title": {"type": "text"}, "body": {"type": "text"},
@@ -93,14 +96,36 @@ def retrieve(user, query, size=8):
     return r["hits"]["hits"]
 
 
+def chat(method, model, **kw):
+    # Free tier allows about one request per second per model; mistral-large-4 always reasons, "low" is its floor.
+    if model == MODEL:
+        kw["reasoning_effort"] = "low"
+    for attempt in range(4):
+        try:
+            return getattr(mistral.chat, method)(model=model, **kw)
+        except Exception as e:
+            if getattr(e, "status_code", None) != 429 or attempt == 3:
+                raise
+            time.sleep(1.5 * (attempt + 1))
+
+
+def text_of(content):
+    return content if isinstance(content, str) else "".join(getattr(c, "text", "") for c in content if getattr(c, "type", "") == "text")
+
+
 def find_same(user, fact):
-    candidates = [h for h in retrieve(user, fact.body, size=3) if h["_source"]["visibility"] == fact.visibility]
+    # A personal note may only replace the owner's personal notes, so it can never hide a shared entry from others.
+    shared = ("public", "community")
+    candidates = [h for h in retrieve(user, fact.body, size=3)
+                  if (h["_source"]["visibility"] in shared) == (fact.visibility in shared) and h["_source"]["kind"] == fact.kind]
     if not candidates:
         return None
     listing = "\n".join(f"{i}. {h['_source']['title']}: {h['_source']['body']}" for i, h in enumerate(candidates, 1))
-    m = mistral.chat.parse(model=FAST, response_format=Match, messages=[
-        {"role": "system", "content": "Return the number of the existing entry that describes the same event, place, "
-                                      "community, person or tip as the new report, or null if none does."},
+    m = chat("parse", MODEL, response_format=Match, messages=[
+        {"role": "system", "content": "Return the number of the existing entry that describes the very same event, "
+                                      "place, community, person or tip as the new report (an update or correction of it), "
+                                      "or null. Different things that merely mention each other are not the same. "
+                                      "When unsure, return null."},
         {"role": "user", "content": f"Existing:\n{listing}\n\nNew report: {fact.title}: {fact.body}"},
     ]).choices[0].message.parsed
     return candidates[m.same_as - 1] if m.same_as and 1 <= m.same_as <= len(candidates) else None
@@ -111,6 +136,15 @@ def remember(user, fact, quote):
                                "status": "reported", "observed_at": datetime.now().astimezone().isoformat()}
     old = find_same(user, fact)
     if old:
+        prev = old["_source"]
+        r = chat("complete", MODEL, messages=[
+            {"role": "system", "content": "Rewrite the older entry with the newer report applied. Keep every detail the "
+                                          "newer report does not change. Reply with the rewritten entry only."},
+            {"role": "user", "content": f"Older: {prev['body']}\nNewer: {fact.body}"},
+        ])
+        doc["body"] = doc["body_semantic"] = text_of(r.choices[0].message.content).strip() or fact.body
+        doc["access"] = prev["access"] if doc["access"] == "unknown" else doc["access"]
+        doc |= {k: doc[k] or prev.get(k) for k in ("when", "neighborhood", "url")}
         doc["supersedes"] = old["_id"]
     es.index(index=INDEX, document=doc, refresh=True)
     if old:
@@ -132,15 +166,15 @@ def answer(user, question, hits):
         f"[{i}] {s['kind']} | {s['title']} | {s['body']} | access={s['access']} | when={s.get('when')} "
         f"| reported by {s['owner']} on {s['observed_at'][:10]}" + (" | replaces an older report" if s.get("supersedes") else "")
         for i, s in enumerate((h["_source"] for h in hits), 1))
-    r = mistral.chat.complete(model=MODEL, messages=[
+    r = chat("complete", MODEL, messages=[
         {"role": "system", "content": ANSWER.format(today=datetime.now().date())},
         {"role": "user", "content": f"Memory:\n{entries}\n\nQuestion from {user}: {question}"},
     ])
-    return r.choices[0].message.content
+    return text_of(r.choices[0].message.content)
 
 
 def turn(user, text, assume_yes=False):
-    t = mistral.chat.parse(model=MODEL, response_format=Turn, messages=[
+    t = chat("parse", MODEL, response_format=Turn, messages=[
         {"role": "system", "content": EXTRACT}, {"role": "user", "content": text},
     ]).choices[0].message.parsed
     for fact in t.facts:

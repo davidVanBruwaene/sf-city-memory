@@ -36,11 +36,13 @@ def check():
     else:
         try:
             r = mistral.chat.complete(
-                model="mistral-small-latest",
+                model="mistral-large-4",
+                reasoning_effort="low",
                 messages=[{"role": "user", "content": "Reply with the single word: ready"}],
-                max_tokens=5,
             )
-            print(f"mistral: ok, mistral-small-latest replied {r.choices[0].message.content!r}")
+            c = r.choices[0].message.content
+            text = c if isinstance(c, str) else "".join(getattr(x, "text", "") for x in c if getattr(x, "type", "") == "text")
+            print(f"mistral: ok, mistral-large-4 replied {text!r}")
         except Exception as e:
             print(f"mistral: FAILED {type(e).__name__}: {e}")
             ok = False
