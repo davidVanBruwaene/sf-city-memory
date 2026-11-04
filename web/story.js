@@ -24,42 +24,65 @@
     catch (e) { return null; }
   };
 
+  const jget = async u => { try { const r = await fetch(u); return r.ok ? await r.json() : null; } catch (e) { return null; } };
+  const blockFact = async (st, cr) => { const b = await jget('/api/block?fast=1&street=' + encodeURIComponent(st) + '&cross=' + encodeURIComponent(cr)); return b && b.facts && b.facts[0]; };
+  const parkP = () => jget('/api/park?lat=37.7587&lon=-122.4233&t=' + encodeURIComponent('Wed 07:00'));
+  const chip = txt => { const b = [...document.querySelectorAll('#dc-bar button')].find(x => x.textContent.includes(txt)); if (b) b.click(); return !!b; };
+  const reset = () => { closePanel(); stopB(); try { M().closePopup(); } catch (e) {} const d = $('dc-pan'); if (d) d.style.display = 'none'; };
+  const nf = n => Number(n).toLocaleString('en-US');
+
   const SCENES = [
     async () => {
-      closePanel(); stopB(); fly(37.78, -122.42, 12);
+      reset(); fly(37.78, -122.42, 12);
       window.memoryLayer && memoryLayer.toggle(false);
-      caption('1,066,570 city records. Every block has a secret personality.');
+      caption(`${nf(1066570)} city records in Elastic. Every block has a secret personality.`);   // no stats endpoint yet: the one fixed number
     },
     async t => {
-      fly(37.7522, -122.4184, 15); caption('148 of SF’s 257 sidewalk-sales citations happen right here.');
-      card('Mission St', '24th St', 37.7522, -122.4184);
+      reset(); caption('Finding the weirdest corner…'); chip('Weirdest corner') || card('Mission St', '24th St', 37.7522, -122.4184);
+      const f = await blockFact('Mission St', '24th St'); if (t !== token) return;
+      caption(f ? `${f.count} ${f.title.toLowerCase().replace('without a permit', 'citations')} within 200 m of this corner — ${Math.round(f.ratio)}x the city.` : 'The weirdest corner in SF. Tap the card to see why.');
     },
     async t => {
-      fly(37.8004, -122.4363, 15); caption('The Marina: 21x the nightlife noise.');
-      card('Chestnut St', 'Fillmore St', 37.8004, -122.4363);
+      reset(); caption('The loudest block…'); chip('Loudest block') || card('Chestnut St', 'Fillmore St', 37.8004, -122.4363);
+      const f = await blockFact('Chestnut St', 'Fillmore St'); if (t !== token) return;
+      caption(f ? `The Marina: ${Math.round(f.ratio)}x the ${f.title.toLowerCase().replace(' reports', '')}.` : 'The Marina: the loudest block in the city.');
     },
     async t => {
-      closePanel(); stopB();
-      const [lat, lon] = [37.7587, -122.4240];
-      caption('Park here tonight? Checking the officer…');
-      fly(lat, lon, 16);
-      const sw = apiSweep('Guerrero St', '20th St');   // live value, never hard-coded
-      document.getElementById('sw-tom') && document.getElementById('sw-tom').click();
-      await wait(2600); if (t !== token) return;
-      let best = null, bd = 1e9;   // nearest red sweep dot to Guerrero & 20th
-      M().eachLayer(l => { if (l instanceof L.CircleMarker && l.options.fillColor === '#ff4d4d') {
-        const p = l.getLatLng(), d = (p.lat - lat) ** 2 + (p.lng - lon) ** 2; if (d < bd) { bd = d; best = l; } } });
-      if (best) best.fire('click');
-      const s = await sw; if (t !== token) return;
-      caption(s && s.officer_usually_by ? `Park here tonight? The officer usually arrives by ${s.officer_usually_by}.`
-                                          : 'Park here tonight? See when the street cleaner and the officer come.');
+      reset(); caption('One street apart. Two different worlds.'); chip('Block battle') || fly(37.7885, -122.4235, 15);
     },
     async t => {
-      closePanel(); M().closePopup();
-      window.memoryLayer && memoryLayer.toggle(true);
-      fly(37.7985, -122.4075, 15); caption('And the city remembers what people share.');
-      await wait(1900); if (t !== token) return;
-      const o = $('ai-open'); if (o && !$('ai').classList.contains('on')) o.click();
+      reset(); caption('Can I park here tonight?');
+      const p = parkP(); chip('Can I park here') || fly(37.7587, -122.4240, 16);
+      const v = await p; if (t !== token) return;
+      if (v && v.headline) caption('Can I park here tonight? ' + v.headline + '.');
+    },
+    async t => {
+      const v = await parkP(); if (t !== token) return;
+      const o = v && v.officer;
+      caption(o && o.officer_usually_by ? `The officer usually arrives by ${o.officer_usually_by}. Estimated from ${o.weeks_seen} weeks of tickets.` : 'The officer usually arrives just after the cleaner. Estimated from past tickets.');
+    },
+    async t => {
+      reset(); window.memoryLayer && memoryLayer.toggle(true); fly(37.7985, -122.4075, 15);
+      caption('Type it once. Press Enter.');
+      if (!chip('Add a memory live') && window.memoryChat) memoryChat.prefill('Réveille Coffee at 200 Columbus is the best founder meetup spot');
+      // when the fact card appears after Enter, share it for the presenter and show the caption
+      const log = document.querySelector('.cm-log'); if (!log) return;
+      const obs = new MutationObserver(() => {
+        const sh = [...log.querySelectorAll('button')].find(x => x.textContent === 'Share' && !x.disabled);
+        if (!sh) return; obs.disconnect(); sh.click();
+        if (document.activeElement) document.activeElement.blur();
+        if (t === token) caption('Now the whole city knows. With who said it, and when.');
+      });
+      obs.observe(log, {childList: true, subtree: true}); setTimeout(() => obs.disconnect(), 120000);
+    },
+    async () => {
+      reset(); const m = document.querySelector('.cm-x'); m && m.click();
+      fly(37.78, -122.42, 12);
+      caption('Elastic: geo_distance + significant_terms finds what’s unusual here.\nMistral: fun names, only from real numbers.');
+      $('st-cap').style.whiteSpace = 'pre-line';
+    },
+    async () => {
+      reset(); $('st-cap').style.whiteSpace = ''; caption('Your block, unfiltered.'); chip('leaderboard');
     },
   ];
 
@@ -67,8 +90,9 @@
     if (n < 0) n = 0;
     if (n >= SCENES.length) return end();
     i = n; const t = ++token;
-    $('st-go').style.display = 'none'; $('st-bar').style.display = 'flex'; $('st-n').textContent = `${i + 1} / ${SCENES.length}`;
+    $('st-go').style.display = 'none'; $('st-bar').style.display = 'flex'; $('st-n').textContent = SCENES.map((_, k) => k === i ? '●' : '○').join(' '); $('st-n').title = `${i + 1} / ${SCENES.length}`;
     clearTimeout(autoTimer);
+    if (i !== 7) $('st-cap').style.whiteSpace = '';
     try { await SCENES[i](t); } catch (e) { console.warn('story scene', i, e); }
     if (auto && t === token) autoTimer = setTimeout(() => go(i + 1), 6500);
   }
