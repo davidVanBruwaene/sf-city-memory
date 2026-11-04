@@ -4,10 +4,8 @@ import math
 import os
 import re
 import time
-from datetime import datetime, timedelta
 from pathlib import Path
 
-import requests
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
 
@@ -15,7 +13,7 @@ load_dotenv(Path(__file__).with_name(".env"))
 es = Elasticsearch(os.environ["ELASTIC_ENDPOINT"], api_key=os.environ["ELASTIC_API_KEY"])
 SUFFIXES = {"st", "street", "ave", "av", "avenue", "blvd", "boulevard", "rd", "road", "dr", "drive", "way", "pl",
             "place", "ct", "court", "ter", "terrace", "ln", "lane", "aly", "alley", "hwy", "highway"}
-RADIUS_M, DAYS, MIN_RATIO = 200, 365, 8
+RADIUS_M, MIN_RATIO = 200, 8
 MODEL = "mistral-large-4"
 # Police descriptions about guns and violence stay out of a block's story: they stigmatise, and a shop-lifting joke is fine.
 VIOLENT = re.compile(r"gun|firearm|weapon|shoot|stab|assault|batter|homicide|murder|manslaughter|rape|robbery|kidnap|"
@@ -30,11 +28,10 @@ except Exception:  # no key, or an SDK without the new import path: the template
     mistral = None
 
 
-def soql(dataset, **params):
-    r = requests.get(f"https://data.sf.gov/resource/{dataset}.json", params={f"${k}": v for k, v in params.items()},
-                     timeout=60)
-    r.raise_for_status()
-    return r.json()
+INDEX = "sf-block-signals"
+# One query answers all three datasets: per dataset, the count of each category (inside the radius, or citywide).
+BY_CATEGORY = {"by_dataset": {"terms": {"field": "dataset", "size": 10},
+                              "aggs": {"c": {"terms": {"field": "category", "size": 5000}}}}}
 
 
 def name_match(field, name):
@@ -43,21 +40,24 @@ def name_match(field, name):
     return {"match": {field: {"query": " ".join(words), "operator": "and"}}}
 
 
-def counts(rows, key):
-    c = {r[key]: int(r["n"]) for r in rows if r.get(key)}
-    return c, sum(c.values())
+def per_dataset(resp):
+    out = {}
+    for d in resp["aggregations"]["by_dataset"]["buckets"]:
+        c = {x["key"]: x["doc_count"] for x in d["c"]["buckets"]}
+        out[d["key"]] = (c, d["doc_count"])
+    return out
 
 
-def city(name, dataset, key, where):
+def city():
     # The citywide baseline is the same for every block, so fetch it once per process.
-    if name not in _city:
-        _city[name] = counts(soql(dataset, select=f"{key}, count(*) AS n", where=where, group=key, limit=50000), key)
-    return _city[name]
+    if not _city:
+        _city.update(per_dataset(es.search(index=INDEX, size=0, aggs=BY_CATEGORY)))
+    return _city
 
 
-def unusual(rows, baseline, key, min_count, make):
-    here, total = counts(rows, key)
-    everywhere, city_total = baseline
+def unusual(here_all, baseline, dataset, min_count, make):
+    here, total = here_all.get(dataset, ({}, 0))
+    everywhere, city_total = baseline.get(dataset, ({}, 0))
     out = []
     for cat, n in here.items():
         if n >= min_count and everywhere.get(cat):
@@ -77,8 +77,8 @@ def fact_311(cat, n, ratio):
 def fact_police(cat, n, ratio):
     if VIOLENT.search(cat):
         return None
-    return dict(title=cat, ratio=ratio, count=n, period="2 yr", dataset="SFPD incidents (wg3w-h783)", rank=None,
-                sentence=f"{ratio}x the city's share of '{cat}' incident reports: {n} within {RADIUS_M} m in two years.")
+    return dict(title=cat, ratio=ratio, count=n, period="1 yr", dataset="SFPD incidents (wg3w-h783)", rank=None,
+                sentence=f"{ratio}x the city's share of '{cat}' incident reports: {n} within {RADIUS_M} m in the past year.")
 
 
 def fact_tree(cat, n, ratio):
@@ -121,20 +121,12 @@ def block_facts(street, cross):
         return {"error": "not_found"}
     b = hits[0]["_source"]
     lat, lon = b["location"]["lat"], b["location"]["lon"]
-    near = f"within_circle(point, {lat}, {lon}, {RADIUS_M})"
-    since = (datetime.now() - timedelta(days=DAYS)).strftime("%Y-%m-%dT00:00:00")
-    since2 = (datetime.now() - timedelta(days=2 * DAYS)).strftime("%Y-%m-%dT00:00:00")
-    key = "service_subtype"
-    facts = unusual(soql("vw6y-z8j6", select=f"{key}, count(*) AS n", group=key, limit=5000,
-                         where=f"{near} AND requested_datetime > '{since}'"),
-                    city("311", "vw6y-z8j6", key, f"requested_datetime > '{since}'"), key, 15, fact_311)
-    key = "incident_description"
-    facts += unusual(soql("wg3w-h783", select=f"{key}, count(*) AS n", group=key, limit=5000,
-                          where=f"{near} AND report_datetime > '{since2}'"),
-                     city("police", "wg3w-h783", key, f"report_datetime > '{since2}'"), key, 15, fact_police)
-    # Trees carry the street-cleaning block's centerline id (cnn), so these are the block's own trees.
-    facts += unusual(soql("tkzw-k3nq", select="species, count(*) AS n", where=f"cnn='{b['cnn']}'", group="species"),
-                     city("trees", "tkzw-k3nq", "species", "species IS NOT NULL"), "species", 10, fact_tree)
+    here = per_dataset(es.search(index=INDEX, size=0, aggs=BY_CATEGORY, query={
+        "geo_distance": {"distance": f"{RADIUS_M}m", "location": {"lat": lat, "lon": lon}}}))
+    base = city()
+    facts = unusual(here, base, "311", 15, fact_311)
+    facts += unusual(here, base, "police", 15, fact_police)
+    facts += unusual(here, base, "trees", 10, fact_tree)
     facts = sorted(facts, key=lambda f: -f["ratio"])[:3]
     for f in facts:
         f["title"] = TITLES.get(f["title"], f["title"])
