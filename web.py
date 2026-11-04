@@ -274,6 +274,11 @@ def memory_map_page():
     return send_from_directory(os.path.join(HERE, "web"), "memory-map.html")
 
 
+@app.get("/story.js")
+def story_js():
+    return send_from_directory(os.path.join(HERE, "web"), "story.js")
+
+
 @app.get("/memory-layer.js")
 def memory_layer_js():
     return send_from_directory(os.path.join(HERE, "web"), "memory-layer.js")
