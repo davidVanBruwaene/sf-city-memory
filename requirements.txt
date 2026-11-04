@@ -6,3 +6,4 @@ mistralai
 python-dotenv
 jupyterlab
 ipykernel
+mcp

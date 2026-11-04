@@ -130,10 +130,10 @@ def find_same(user, fact):
     return candidates[m.same_as - 1] if m.same_as and 1 <= m.same_as <= len(candidates) else None
 
 
-def remember(user, fact, quote):
+def remember(user, fact, quote, match=True):
     doc = fact.model_dump() | {"body_semantic": fact.body, "owner": user, "source_quote": quote,
                                "status": "reported", "observed_at": datetime.now().astimezone().isoformat()}
-    old = find_same(user, fact)
+    old = find_same(user, fact) if match else None
     if old:
         prev = old["_source"]
         r = chat("complete", MODEL, messages=[
@@ -149,6 +149,7 @@ def remember(user, fact, quote):
     if old:
         es.update(index=INDEX, id=old["_id"], doc={"status": "superseded"}, refresh=True)
         print(f"  replaces '{old['_source']['title']}' reported by {old['_source']['owner']}")
+    return old["_source"]["title"] if old else None
 
 
 def consent(fact):
@@ -158,13 +159,17 @@ def consent(fact):
     return a in ("y", "p")
 
 
-def answer(user, question, hits):
-    if not hits:
-        return "Nothing in the city memory matches that yet."
-    entries = "\n".join(
+def format_entries(hits):
+    return "\n".join(
         f"[{i}] {s['kind']} | {s['title']} | {s['body']} | access={s['access']} | when={s.get('when')} "
         f"| reported by {s['owner']} on {s['observed_at'][:10]}" + (" | replaces an older report" if s.get("supersedes") else "")
         for i, s in enumerate((h["_source"] for h in hits), 1))
+
+
+def answer(user, question, hits):
+    if not hits:
+        return "Nothing in the city memory matches that yet."
+    entries = format_entries(hits)
     r = chat("complete", MODEL, messages=[
         {"role": "system", "content": ANSWER.format(today=datetime.now().date())},
         {"role": "user", "content": f"Memory:\n{entries}\n\nQuestion from {user}: {question}"},
