@@ -151,6 +151,79 @@ def api_memory():
     return jsonify(items=[h["_source"] | {"id": h["_id"]} for h in r["hits"]["hits"]])
 
 
+SWEEP_FIELDS = ["corridor", "limits", "blockside", "weekday", "fromhour", "tohour", "weeks", "location", "cnn"]
+
+
+def _client():
+    global _es
+    if _es is None and os.getenv("ELASTIC_ENDPOINT") and os.getenv("ELASTIC_API_KEY"):
+        from elasticsearch import Elasticsearch
+        _es = Elasticsearch(os.environ["ELASTIC_ENDPOINT"], api_key=os.environ["ELASTIC_API_KEY"])
+    return _es
+
+
+def _sweep_time(t):
+    """t = 'HH:MM' (today, SF time) or 'YYYY-MM-DDTHH:MM'; default now."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo("America/Los_Angeles")
+    now = datetime.now(tz)
+    if not t:
+        return now
+    if "T" in t:
+        return datetime.fromisoformat(t).replace(tzinfo=tz)
+    h, m = (int(x) for x in t.split(":"))
+    return now.replace(hour=h, minute=m, second=0, microsecond=0)
+
+
+@app.get("/api/sweep")
+def api_sweep():
+    """Street-cleaning blocks inside bbox=west,south,east,north, each with status at time t: now (cleaning), soon (<=2h), safe."""
+    try:
+        w, s, e, n = (float(x) for x in request.args.get("bbox", "").split(","))
+        at = _sweep_time(request.args.get("t", ""))
+    except ValueError:
+        return jsonify(error="bad_request", items=[]), 400
+    es = _client()
+    if es is None:
+        return jsonify(items=[], note="no elastic configured")
+    day, wk, mins = at.strftime("%A"), (at.day - 1) // 7 + 1, at.hour * 60 + at.minute
+    try:
+        r = es.search(index="sf-street-sweeping", size=1500, source_includes=SWEEP_FIELDS, query={"bool": {"filter": [
+            {"geo_bounding_box": {"location": {"top_left": {"lat": n, "lon": w}, "bottom_right": {"lat": s, "lon": e}}}},
+            {"terms": {"weekday": [day, day[:3], day[:4]]}}, {"term": {"weeks": wk}}]}})
+    except Exception as ex:
+        return jsonify(error="search_failed", detail=str(ex), items=[]), 502
+    items = []
+    for h in r["hits"]["hits"]:
+        b = h["_source"]
+        a, z = b["fromhour"] * 60, b["tohour"] * 60
+        status = "now" if a <= mins < z else "soon" if 0 < a - mins <= 120 else "safe"
+        items.append({"id": h["_id"], "status": status, "lat": b["location"]["lat"], "lon": b["location"]["lon"], "street": b["corridor"],
+                      "limits": b.get("limits"), "side": b.get("blockside"), "weekday": day, "from": b["fromhour"], "to": b["tohour"]})
+    return jsonify(items=items, t=at.strftime("%a %H:%M"))
+
+
+@app.get("/api/sweep/officer")
+def api_sweep_officer():
+    """Usual officer arrival for the block nearest lat,lon on this street. null when the ticket data isn't there or the pattern is thin."""
+    try:
+        street, day = request.args["street"], request.args["weekday"]
+        loc = {"lat": float(request.args["lat"]), "lon": float(request.args["lon"])}
+        from block import name_words
+        from sweep_officer import es, officer_timing
+        near = es.search(index="sf-sweep-tickets", size=1, sort=[{"_geo_distance": {"location": loc, "order": "asc"}}],
+                         query={"wildcard": {"block_key": f"* {name_words(street)}*"}})["hits"]["hits"]
+        return jsonify(officer=officer_timing(near[0]["_source"]["block_key"], day) if near else None)
+    except Exception:
+        return jsonify(officer=None)
+
+
+@app.get("/sweep-layer.js")
+def sweep_layer_js():
+    return send_from_directory(os.path.join(HERE, "web"), "sweep-layer.js")
+
+
 @app.get("/memory-map")
 def memory_map_page():
     return send_from_directory(os.path.join(HERE, "web"), "memory-map.html")
