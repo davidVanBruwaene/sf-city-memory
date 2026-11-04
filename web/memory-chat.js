@@ -4,7 +4,7 @@
   if (window.cityMemoryChat) return;
 
   var CSS = [
-    '#cm{position:fixed;right:16px;bottom:16px;z-index:1000;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px;color:#e8ecf5}',
+    '#cm{position:fixed;right:16px;bottom:172px;z-index:1000;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px;color:#e8ecf5}',
     '#cm *{box-sizing:border-box}',
     '#cm button,#cm input,#cm textarea{width:auto;margin:0;padding:0;background:none;border:0;font:inherit;color:inherit;border-radius:0;box-shadow:none}',
     '#cm button{cursor:pointer}',
@@ -37,7 +37,7 @@
     '#cm .cm-in{display:flex;gap:6px;align-items:flex-end}#cm .cm-in textarea{flex:1;height:40px}',
     '#cm .cm-paste{display:none;margin-top:6px}#cm .cm-paste textarea{height:110px}',
     '#cm .cm-ask{display:none;padding:10px;border-top:1px solid #23293a;background:#111622}',
-    '@media (max-width:600px){#cm{right:0;bottom:0;left:0}#cm .cm-pill{position:absolute;right:16px;bottom:16px}#cm .cm-panel{width:100%;height:80vh;border-radius:14px 14px 0 0}}'
+    '@media (max-width:600px){#cm{right:0;bottom:0;left:0}#cm .cm-pill{position:fixed;right:12px;top:62px;bottom:auto}#cm .cm-panel{width:100%;height:80vh;border-radius:14px 14px 0 0}}'
   ].join('\n');
 
   var ICON = { place: '☕', event: '📅', community: '👥', person: '🙋', tip: '💡' };
