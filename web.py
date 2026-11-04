@@ -14,6 +14,11 @@ SOURCE = os.getenv("BLOCK_SOURCE", "mock")  # the one switch: "mock" or "real"
 EXAMPLES = ["Mission St / 24th St", "Chestnut St / Fillmore St", "Guerrero St / 20th St"]
 app = Flask(__name__, static_folder=None)
 room, room_lock = {}, threading.Lock()
+ROOM_INDEX = "block-room"
+_es = None
+if os.getenv("ELASTIC_ENDPOINT") and os.getenv("ELASTIC_API_KEY"):  # serverless: persist the room in ES so instances share it
+    from elasticsearch import Elasticsearch
+    _es = Elasticsearch(os.environ["ELASTIC_ENDPOINT"], api_key=os.environ["ELASTIC_API_KEY"])
 
 MOCK = {
     "mission st": dict(lat=37.7524, lon=-122.4184, nickname="The Sidewalk Bazaar of the Mission", weirdness=9.2, facts=[
@@ -79,13 +84,28 @@ def api_block():
     with room_lock:
         room[b["address"]] = dict(lat=b["lat"], lon=b["lon"], nickname=b["nickname"], weirdness=b["weirdness"],
                                   top_fact=f"{top.get('title', '')} {top.get('ratio', '')}x".strip(), ts=time.time())
+        if _es:
+            try:
+                _es.index(index=ROOM_INDEX, id=b["address"], document=room[b["address"]], refresh=True)
+            except Exception:
+                pass
     return jsonify(b)
 
 
 @app.get("/api/room")
 def api_room():
     with room_lock:
+        if _es:
+            try:
+                hits = _es.search(index=ROOM_INDEX, size=200, sort="ts:asc")["hits"]["hits"]
+                return _room_json([h["_source"] for h in hits])
+            except Exception:
+                pass
         blocks = sorted(room.values(), key=lambda x: x["ts"])
+    return _room_json(blocks)
+
+
+def _room_json(blocks):
     return jsonify(blocks=blocks, top5=sorted(blocks, key=lambda x: -x["weirdness"])[:5])
 
 
