@@ -137,7 +137,7 @@ def sweeping_info(b):
     return {**out, **timing} if timing else out
 
 
-def block_facts(street, cross):
+def block_facts(street, cross, fast=False):
     must = [name_match("corridor", street)] + ([name_match("limits", cross)] if cross else [])
     hits = es.search(index="sf-street-sweeping", size=1, query={"bool": {"must": must}})["hits"]["hits"]
     if not hits:
@@ -155,7 +155,7 @@ def block_facts(street, cross):
         f["title"] = TITLES.get(f["title"], f["title"])
     weirdness = round(min(9.9, sum(math.log(f["ratio"]) for f in facts)), 1)
     nickname = f"Remarkably Normal {b['corridor']}"
-    written = say(facts, nickname)
+    written = None if fast else say(facts, nickname)  # fast=True: template text now, Mistral later via /api/nickname
     if written:
         nickname = written[0]
         for f, text in zip(facts, written[1]):

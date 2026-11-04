@@ -62,11 +62,33 @@ def mock_block(street, cross):
     return b
 
 
-def get_block(street, cross):
+WOW = [("Mission St", "24th St"), ("Chestnut St", "Fillmore St"), ("Market St", "6th St"), ("Bryant St", "24th St"),
+       ("Stockton St", "Clay St")]
+_full = {}  # (street, cross) lowercased -> finished block with the Mistral nickname; the 5 wow blocks are filled at startup
+
+
+def _key(street, cross):
+    return street.lower(), cross.lower()
+
+
+def get_block(street, cross, fast=False):
     if SOURCE == "real":
         import block
-        return block.block_facts(street, cross)
+        return block.block_facts(street, cross, fast=fast)
     return mock_block(street, cross)
+
+
+def _prewarm():
+    for st, cr in WOW:
+        try:
+            b = get_block(st, cr)
+            if b and not b.get("error"):
+                _full[_key(st, cr)] = b
+        except Exception:
+            pass
+
+
+threading.Thread(target=_prewarm, daemon=True).start()
 
 
 @app.get("/api/block")
@@ -75,8 +97,15 @@ def api_block():
     cross = request.args.get("cross", "").strip()
     if not street:
         return jsonify(error="not_found", examples=EXAMPLES), 400
+    fast = request.args.get("fast") == "1"
     try:
-        b = get_block(street, cross)
+        b = _full.get(_key(street, cross))
+        if b is None:
+            b = get_block(street, cross, fast=fast)
+            if not fast and b and not b.get("error"):
+                _full[_key(street, cross)] = b
+            elif fast and b and not b.get("error"):
+                b = dict(b, pending=True)
     except Exception as e:  # keep the demo alive on any backend failure
         return jsonify(error="not_found", detail=str(e), examples=EXAMPLES), 502
     if not b or b.get("error"):
@@ -91,6 +120,22 @@ def api_block():
             except Exception:
                 pass
     return jsonify(b)
+
+
+@app.get("/api/nickname")
+def api_nickname():
+    """Second step of the fast flow: the Mistral nickname and sentences for a block the numbers card already showed."""
+    street = request.args.get("street", "").strip()
+    cross = request.args.get("cross", "").strip()
+    try:
+        b = _full.get(_key(street, cross))
+        if b is None:
+            b = get_block(street, cross)
+            if b and not b.get("error"):
+                _full[_key(street, cross)] = b
+        return jsonify(nickname=b["nickname"], sentences=[f["sentence"] for f in b["facts"]])
+    except Exception:
+        return jsonify(error="unavailable"), 502
 
 
 @app.post("/api/chat")
