@@ -3,6 +3,7 @@ import json
 import math
 import os
 import re
+import sys
 import time
 from pathlib import Path
 
@@ -118,14 +119,21 @@ def say(facts, nickname_hint):
             time.sleep(1.5 * (attempt + 1))
 
 
+TICKETS_INDEX = "sf-sweep-tickets"
+
+
 def sweeping_info(b):
     """The block's cleaning schedule plus, when the ticket data shows a steady pattern, when the officer usually arrives."""
     from sweep_officer import officer_timing
     day, a, z = b["weekday"], b["fromhour"] % 12 or 12, b["tohour"] % 12 or 12
     out = dict(schedule=f"{day[:3]} {a}-{z}{'am' if b['tohour'] < 12 else 'pm'}")
-    near = es.search(index="sf-sweep-tickets", size=1, sort=[{"_geo_distance": {"location": b["location"], "order": "asc"}}],
+    near = es.search(index=TICKETS_INDEX, size=1, sort=[{"_geo_distance": {"location": b["location"], "order": "asc"}}],
                      query={"wildcard": {"block_key": f"* {name_words(b['corridor'])}*"}})["hits"]["hits"]
-    timing = officer_timing(near[0]["_source"]["block_key"], day) if near else None
+    try:
+        timing = officer_timing(near[0]["_source"]["block_key"], day) if near else None
+    except Exception as e:
+        print(f"officer_timing failed: {e}", file=sys.stderr)
+        timing = None
     return {**out, **timing} if timing else out
 
 
@@ -156,7 +164,12 @@ def block_facts(street, cross):
         nickname = f"The {facts[0]['title'].removesuffix(' reports').removesuffix(' trees')} Capital of {b['corridor']}"
         for f in facts:
             f["sentence"] = f"{f['title']}: {f['ratio']:.0f}x the SF average ({f['count']} reports)"
+    try:
+        sweeping = sweeping_info(b)
+    except Exception as e:
+        print(f"sweeping_info failed: {e}", file=sys.stderr)
+        sweeping = None
     return dict(
         address=f"{street} & {cross}, San Francisco" if cross else f"{street}, San Francisco", lat=lat, lon=lon,
         nickname=nickname,
-        weirdness=weirdness, facts=facts, sweeping=sweeping_info(b))
+        weirdness=weirdness, facts=facts, sweeping=sweeping)
