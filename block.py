@@ -40,6 +40,10 @@ def name_match(field, name):
     return {"match": {field: {"query": " ".join(words), "operator": "and"}}}
 
 
+def name_words(name):
+    return " ".join(w for w in name.replace(".", " ").split() if w.lower() not in SUFFIXES).upper() or name.upper()
+
+
 def per_dataset(resp):
     out = {}
     for d in resp["aggregations"]["by_dataset"]["buckets"]:
@@ -114,6 +118,17 @@ def say(facts, nickname_hint):
             time.sleep(1.5 * (attempt + 1))
 
 
+def sweeping_info(b):
+    """The block's cleaning schedule plus, when the ticket data shows a steady pattern, when the officer usually arrives."""
+    from sweep_officer import officer_timing
+    day, a, z = b["weekday"], b["fromhour"] % 12 or 12, b["tohour"] % 12 or 12
+    out = dict(schedule=f"{day[:3]} {a}-{z}{'am' if b['tohour'] < 12 else 'pm'}")
+    near = es.search(index="sf-sweep-tickets", size=1, sort=[{"_geo_distance": {"location": b["location"], "order": "asc"}}],
+                     query={"wildcard": {"block_key": f"* {name_words(b['corridor'])}*"}})["hits"]["hits"]
+    timing = officer_timing(near[0]["_source"]["block_key"], day) if near else None
+    return {**out, **timing} if timing else out
+
+
 def block_facts(street, cross):
     must = [name_match("corridor", street)] + ([name_match("limits", cross)] if cross else [])
     hits = es.search(index="sf-street-sweeping", size=1, query={"bool": {"must": must}})["hits"]["hits"]
@@ -144,5 +159,4 @@ def block_facts(street, cross):
     return dict(
         address=f"{street} & {cross}, San Francisco" if cross else f"{street}, San Francisco", lat=lat, lon=lon,
         nickname=nickname,
-        # The card needs officer arrival times from parking-citation data, which is not loaded yet.
-        weirdness=weirdness, facts=facts, sweeping=None)
+        weirdness=weirdness, facts=facts, sweeping=sweeping_info(b))
