@@ -30,14 +30,14 @@ def add(config):
 def main():
     # Claude rewrites this file from memory while it runs, so the edit only survives if Claude is closed.
     if running():
-        print("Quitting Claude (press Cmd+Q in Claude if it stays open)...")
+        print("Waiting for Claude to quit: press Cmd+Q in Claude now, and confirm if it asks.")
         subprocess.run(["osascript", "-e", 'quit app "Claude"'], capture_output=True)
-        for _ in range(240):
+        for _ in range(1200):
             if not running():
                 break
             time.sleep(0.5)
         else:
-            sys.exit("Claude is still running: quit it with Cmd+Q and run this again")
+            sys.exit("Claude is still running after 10 minutes: quit it with Cmd+Q and run this again")
     print("sf-city added; local MCP servers:", ", ".join(add(CONFIG)))
     subprocess.run(["open", "-a", "Claude"])
     print("Claude is reopening: start a new chat, click + then Connectors, and sf-city should be listed")

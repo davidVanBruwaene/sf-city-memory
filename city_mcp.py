@@ -12,6 +12,8 @@ from sfhack import es
 
 SF = ZoneInfo("America/Los_Angeles")
 DAYS = {"Mon": 0, "Tues": 1, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6}
+SUFFIXES = {"st", "street", "ave", "av", "avenue", "blvd", "boulevard", "rd", "road", "dr", "drive", "way", "pl",
+            "place", "ct", "court", "ter", "terrace", "ln", "lane", "aly", "alley", "hwy", "highway"}
 USER = os.getenv("CITY_USER", "guest")
 server = MCPServer(name="sf-city", instructions=(
     "Local knowledge of San Francisco for residents and visitors: street-cleaning schedules (when to move your car) "
@@ -33,23 +35,31 @@ def next_sweeps(weekday, weeks, start_h, end_h, now, n=2):
     return out
 
 
+def name_match(field, name):
+    # Require every word but the suffix: the data writes "St" where people and models write "Street".
+    words = [w for w in name.replace(".", " ").split() if w.lower() not in SUFFIXES] or name.split()
+    return {"match": {field: {"query": " ".join(words), "operator": "and"}}}
+
+
 @server.tool()
 def street_cleaning(street: str, cross_street: str | None = None) -> str:
     """When is street cleaning on a San Francisco block, i.e. when must the user move their car. Give the street
     (e.g. 'Sutter St') and, if known, a nearby cross street to narrow it to the block. Returns each block side with
     its schedule and the next two cleanings from now (Pacific time)."""
-    must = [{"match": {"corridor": {"query": street, "operator": "and"}}}]
+    must = [name_match("corridor", street)]
     if cross_street:
-        must.append({"match": {"limits": cross_street}})
+        must.append(name_match("limits", cross_street))
     r = es.search(index="sf-street-sweeping", size=12, query={"bool": {"must": must}})
     now = datetime.now(SF)
     lines = [f"Now: {now:%a %b %d %-I:%M %p}"]
     for s in (h["_source"] for h in r["hits"]["hits"]):
         nxt = next_sweeps(s["weekday"], s["weeks"], s["fromhour"], s["tohour"], now)
         when = "; ".join(f"{a:%a %b %d} {a:%-I %p}-{b:%-I %p}" for a, b in nxt) or "none in the next 10 weeks"
-        lines.append(f"{s['corridor']} ({s['limits']}), {s['blockside']} side: {s['fullname']}, "
+        side = f", {s['blockside']} side" if s.get("blockside") else ""
+        lines.append(f"{s['corridor']} ({s['limits']}){side}: {s['fullname']}, "
                      f"{s['fromhour']}:00-{s['tohour']}:00. Next: {when}")
-    return "\n".join(lines) if len(lines) > 1 else f"No street-cleaning schedule found for {street}."
+    near = f" near {cross_street}" if cross_street else ""
+    return "\n".join(lines) if len(lines) > 1 else f"No street-cleaning schedule found for {street}{near}."
 
 
 @server.tool()
