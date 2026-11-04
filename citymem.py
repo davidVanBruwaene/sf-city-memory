@@ -170,16 +170,24 @@ def merged_fields(prev, fact):
                   "first_observed_at": prev.get("first_observed_at") or prev["observed_at"]}
 
 
-def remember(user, fact, quote, match=True):
+def store(user, fact, quote, match=True, location=None):
+    """Save a fact, merging it into the entry it updates; returns (new id, new doc, replaced hit or None)."""
     doc = fact.model_dump() | {"body_semantic": fact.body, "owner": user, "source_quote": quote,
                                "status": "reported", "observed_at": datetime.now().astimezone().isoformat()}
     old = find_same(user, fact) if match else None
     if old:
         doc |= merged_fields(old["_source"], fact) | {"supersedes": old["_id"]}
-    es.index(index=INDEX, document=doc, refresh=True)
+    if (old and old["_source"].get("location")) or location:  # the matched entry's location wins over a fresh geocode
+        doc["location"] = (old and old["_source"].get("location")) or location
+    r = es.index(index=INDEX, document=doc, refresh=True)
     if old:
         es.update(index=INDEX, id=old["_id"], doc={"status": "superseded"}, refresh=True)
         print(f"  replaces '{old['_source']['title']}' reported by {old['_source']['owner']}")
+    return r["_id"], doc, old
+
+
+def remember(user, fact, quote, match=True):
+    old = store(user, fact, quote, match)[2]
     return old["_source"]["title"] if old else None
 
 
